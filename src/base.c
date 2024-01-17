@@ -4,56 +4,81 @@
 void fatal_error(char *format, ...){
 	va_list args;
 	va_start(args,format);
-	static char msg[1024];
+
+	static char msg[4096];
 	vsnprintf(msg,COUNT(msg),format,args);
 	boxerShow(msg,"Error",BoxerStyleError,BoxerButtonsQuit);
+
 	va_end(args);
+	
 	exit(1);
 }
 
 void *malloc_or_die(size_t size){
 	void *p = malloc(size);
-	if (!p) fatal_error("malloc failed.");
+	ASSERT(p);
 	return p;
 }
 
 void *zalloc_or_die(size_t size){
 	void *p = calloc(1,size);
-	if (!p) fatal_error("zalloc failed.");
+	ASSERT(p);
 	return p;
 }
 
 void *realloc_or_die(void *ptr, size_t size){
 	void *p = realloc(ptr,size);
-	if (!p) fatal_error("realloc failed.");
+	ASSERT(p);
 	return p;
 }
 
-char *local_path_to_absolute(char *localPath){
-	static char absolutePath[4096];
-	int rootLen = wai_getExecutablePath(0,0,0);
-	int totalLen = rootLen + strlen(localPath) + 1;
-	ASSERT(totalLen <= COUNT(absolutePath));
-	int dirNameLen;
-	wai_getExecutablePath(absolutePath,rootLen,&dirNameLen);
-	absolutePath[rootLen] = 0;
-	char *lastI = strrchr(absolutePath,'/');
-	if (!lastI){
-		lastI = strrchr(absolutePath,'\\');
-		if (!lastI){
-			fatal_error("Invalid exe path: %s",absolutePath);
-		}
-	}
-	lastI[1] = 0;
-	strcat(absolutePath,localPath);
-	return absolutePath;
+static char fmtStr[4096];
+char *format_string(char *format, ...){
+	va_list args;
+	va_start(args,format);
+
+	int len = vsnprintf(fmtStr,COUNT(fmtStr),format,args);
+	ASSERT(len > 0 && len < COUNT(fmtStr));
+
+	va_end(args);
+
+	return fmtStr;
 }
 
-char *load_file_as_cstring(char *localPath){
-	char *absolutePath = local_path_to_absolute(localPath);
-	FILE *f = fopen(absolutePath,"rb");
+static char root[4096];
+static char *rootEnd = 0;
+char *local_path_to_absolute(char *format, va_list args){
+	int len;
+	if (!rootEnd){
+		len = wai_getExecutablePath(0,0,0);
+		ASSERT(len < COUNT(root));
+		ASSERT(0 < wai_getExecutablePath(root,len,0));
+		root[len] = 0;
+
+		rootEnd = strrchr(root,'/');
+		if (!rootEnd){
+			rootEnd = strrchr(root,'\\');
+			ASSERT(rootEnd);
+		}
+		rootEnd++;
+		rootEnd[0] = 0;
+	}
+
+	size_t remaining = root+COUNT(root)-rootEnd;
+	len = vsnprintf(rootEnd,remaining,format,args);
+	ASSERT(len > 0 && len < remaining);
+
+	return root;
+}
+
+char *load_file_as_cstring(char *format, ...){
+	va_list args;
+	va_start(args,format);
+
+	char *path = local_path_to_absolute(format,args);
+	FILE *f = fopen(path,"rb");
 	if (!f){
-		fatal_error("Could not open file: %s",local_path_to_absolute(localPath));
+		fatal_error("Could not open file: %s",path);
 	}
 	fseek(f,0,SEEK_END);
 	long len = ftell(f);
@@ -63,6 +88,9 @@ char *load_file_as_cstring(char *localPath){
 	fread(str,1,len,f);
 	str[len] = 0;
 	fclose(f);
+
+	va_end(args);
+
 	return str;
 }
 

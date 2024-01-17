@@ -48,6 +48,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_vorbis whereami fast_obj)
 if( MSVC )
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 
 		message( "\n\t[ WARNING ]\n\n\tCMake version lower than 3.6.\n\n\t - Please update CMake and rerun; OR\n\t - Manually set StartUp Project in Visual Studio.\n" )
 	else()

@@ -56,9 +56,11 @@ void *zalloc_or_die(size_t size);
 
 void *realloc_or_die(void *ptr, size_t size);
 
-char *local_path_to_absolute(char *localPath);
+char *format_string(char *format, ...);
 
-char *load_file_as_cstring(char *localPath);
+char *local_path_to_absolute(char *format, ...);
+
+char *load_file_as_cstring(char *format, ...);
 
 /*
 rand_int
