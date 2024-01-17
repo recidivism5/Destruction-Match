@@ -47,7 +47,7 @@ char *format_string(char *format, ...){
 
 static char root[4096];
 static char *rootEnd = 0;
-char *local_path_to_absolute(char *format, va_list args){
+static char *local_path_to_absolute_internal(char *format, va_list args){
 	int len;
 	if (!rootEnd){
 		len = wai_getExecutablePath(0,0,0);
@@ -71,11 +71,22 @@ char *local_path_to_absolute(char *format, va_list args){
 	return root;
 }
 
+char *local_path_to_absolute(char *format, ...){
+	va_list args;
+	va_start(args,format);
+
+	char *path = local_path_to_absolute_internal(format,args);
+
+	va_end(args);
+
+	return path;
+}
+
 char *load_file_as_cstring(char *format, ...){
 	va_list args;
 	va_start(args,format);
 
-	char *path = local_path_to_absolute(format,args);
+	char *path = local_path_to_absolute_internal(format,args);
 	FILE *f = fopen(path,"rb");
 	if (!f){
 		fatal_error("Could not open file: %s",path);

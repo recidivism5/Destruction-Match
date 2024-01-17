@@ -1,18 +1,5 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
+project(fast_obj)
 
-PROJECT(fast_obj)
-
-OPTION(FAST_OBJ_BUILD_TEST "Build test application" OFF)
-
-ADD_LIBRARY(fast_obj INTERFACE)
-TARGET_INCLUDE_DIRECTORIES(fast_obj INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-
-ADD_LIBRARY(fast_obj_lib STATIC fast_obj.c)
-TARGET_INCLUDE_DIRECTORIES(fast_obj_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-
-IF(${FAST_OBJ_BUILD_TEST})
-    ADD_EXECUTABLE(fast_obj_test test/test.cpp)
-    TARGET_COMPILE_FEATURES(fast_obj_test PRIVATE cxx_std_11)
-    TARGET_LINK_LIBRARIES(fast_obj_test PRIVATE fast_obj_lib)
-ENDIF()
+add_library(fast_obj include/fast_obj.h fast_obj.c)
+target_include_directories(fast_obj PUBLIC include/)

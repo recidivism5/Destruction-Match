@@ -8,19 +8,17 @@
 
 #include <base.h>
 
-TSTRUCT(Texture){
-	GLuint id;
-	int width, height;
-};
-
 TSTRUCT(GPUMesh){
 	GLuint vao, vbo;
 	int vertex_count;
 };
 
+TSTRUCT(GPUMeshInstance){
+	GPUMesh *mesh;
+	vec3 position;
+};
+
 GLenum glCheckError_(const char *file, int line);
-#define glCheckError() glCheckError_(__FILE__, __LINE__)
+#define glCheckError() glCheckError_(FILENAME, __LINE__)
 
-void load_texture(Texture *t, char *name);
-
-GLuint load_shader(char *name);
+void renderer_init();

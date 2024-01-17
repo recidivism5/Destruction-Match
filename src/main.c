@@ -136,7 +136,7 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
-	GLuint checker = load_shader("checker");
+	renderer_init();
 
 	srand((unsigned int)time(0));
 
@@ -177,7 +177,7 @@ void main(void){
 
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
-		//glEnable(GL_BLEND);
+		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
 		mat4 persp;
@@ -185,19 +185,6 @@ void main(void){
 		glm_perspective(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f,persp);
 		glm_translate_make(vp,(vec3){0,0,-5});
 		glm_mat4_mul(persp,vp,vp);
-
-		/*glUseProgram(texture_shader.id);
-		glBindTexture(GL_TEXTURE_2D,sprites.id);
-		glUniformMatrix4fv(texture_shader.uMVP,1,GL_FALSE,(GLfloat *)vp);
-		glUniform1i(texture_shader.uTex,0);
-
-		GPUMesh m;
-		TextureVertex verts[] = {
-			
-		};
-		gpu_mesh_from_texture_verts(&m,verts,COUNT(verts));
-		glDrawArrays(GL_TRIANGLES,0,m.vertex_count);
-		delete_gpu_mesh(&m);*/
 
 		glCheckError();
  

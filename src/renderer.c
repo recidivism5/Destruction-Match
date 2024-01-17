@@ -1,5 +1,6 @@
 #include <renderer.h>
 #include <whereami.h>
+#include <fast_obj.h>
 
 GLenum glCheckError_(const char *file, int line){
 	GLenum errorCode;
@@ -37,7 +38,7 @@ static void check_program(char *name, char *status_name, GLuint id, GLenum param
 	}
 }
 
-GLuint load_shader(char *name){
+static GLuint load_shader(char *name){
 	char *vSrc = load_file_as_cstring("res/shaders/%s/vs.glsl",name);
 	char *fSrc = load_file_as_cstring("res/shaders/%s/fs.glsl",name);
 
@@ -64,26 +65,98 @@ GLuint load_shader(char *name){
 	return p;
 }
 
-void load_texture(Texture *t, char *name){
-	int comp;
-	stbi_set_flip_vertically_on_load(true);
+static GLuint load_texture(char *name){
 	char *path = local_path_to_absolute("res/textures/%s.png",name);
-	unsigned char *pixels = stbi_load(path,&t->width,&t->height,&comp,4);
+	stbi_set_flip_vertically_on_load(true);
+	int width, height, comp;
+	unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
 	if (!pixels){
-		fatal_error("Texture: \"%s\" not found.",path);
+		fatal_error("Failed to load texture:\n%s",path);
 	}
-	glGenTextures(1,&t->id);
-	glBindTexture(GL_TEXTURE_2D,t->id);
+	GLuint id;
+	glGenTextures(1,&id);
+	glBindTexture(GL_TEXTURE_2D,id);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,t->width,t->height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
 	free(pixels);
+	return id;
 }
 
-GLuint load_cubemap(char *name){
-	
+static GLuint load_cubemap(char *name){
+	GLuint id;
+	glGenTextures(1,&id);
+	glBindTexture(GL_TEXTURE_CUBE_MAP,id);
+	stbi_set_flip_vertically_on_load(true);
+	const char *faces[] = {
+		"px","py","pz",
+		"nx","ny","nz",
+	};
+	for(int i = 0; i < COUNT(faces); i++){
+		char *path = local_path_to_absolute("res/cubemaps/%s/%s.png",name,faces[i]);
+		int width, height, comp;
+		unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
+		if (!pixels){
+			fatal_error("Failed to load texture:\n%s",path);
+		}
+		glTexImage2D(
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+			0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels
+		);
+		free(pixels);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	return id;
+}
+
+static void load_model(GPUMesh *mesh, char *name){
+	char *path = local_path_to_absolute("res/models/%s.obj",name);
+	fastObjMesh *obj = fast_obj_read(path);
+	if (!obj){
+		fatal_error("Failed to load model:\n%s",path);
+	}
+	printf(
+		"Model: %s\n"
+		"\tposition_count: %d\n"
+		"\ttexcoord_count: %d\n"
+		"\tnormal_count:   %d\n",
+		name,
+		obj->position_count,
+		obj->texcoord_count,
+		obj->normal_count
+	);
+	fast_obj_destroy(obj);
+}
+
+static struct {
+	GLuint id;
+	GLint 
+		uVP,
+		uCamPos,
+		uSkybox,
+		uAmbient,
+		uReflectivity;
+} checkerShader;
+
+#define GET_UNIFORM(shader,name)\
+	shader.name = glGetUniformLocation(shader.id,#name);\
+	ASSERT(0 <= shader.name);
+
+void renderer_init(){
+	checkerShader.id = load_shader("checker");
+	GET_UNIFORM(checkerShader,uVP);
+	GET_UNIFORM(checkerShader,uCamPos);
+	GET_UNIFORM(checkerShader,uSkybox);
+	GET_UNIFORM(checkerShader,uAmbient);
+	GET_UNIFORM(checkerShader,uReflectivity);
+
+	load_model(0,"world");
 }
 
 void delete_gpu_mesh(GPUMesh *m){
