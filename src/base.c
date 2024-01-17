@@ -29,26 +29,41 @@ void *realloc_or_die(void *ptr, size_t size){
 	return p;
 }
 
-char *get_resource_path(char *name, char *extension){
-	static char path[4096];
-	int len = wai_getExecutablePath(0,0,0);
-	int totalLen = len + strlen("res/") + strlen(name) + strlen(extension) + 1;
-	if (totalLen > COUNT(path)){
-		fatal_error("Resource path length exceeded.");
-	}
+char *local_path_to_absolute(char *localPath){
+	static char absolutePath[4096];
+	int rootLen = wai_getExecutablePath(0,0,0);
+	int totalLen = rootLen + strlen(localPath) + 1;
+	ASSERT(totalLen <= COUNT(absolutePath));
 	int dirNameLen;
-	wai_getExecutablePath(path,len,&dirNameLen);
-	path[len] = 0;
-	char *lastI = strrchr(path,'/');
+	wai_getExecutablePath(absolutePath,rootLen,&dirNameLen);
+	absolutePath[rootLen] = 0;
+	char *lastI = strrchr(absolutePath,'/');
 	if (!lastI){
-		lastI = strrchr(path,'\\');
+		lastI = strrchr(absolutePath,'\\');
 		if (!lastI){
-			fatal_error("Invalid exe path: %s",path);
+			fatal_error("Invalid exe path: %s",absolutePath);
 		}
 	}
 	lastI[1] = 0;
-	sprintf(lastI+1,"res/%s%s",name,extension);
-	return path;
+	strcat(absolutePath,localPath);
+	return absolutePath;
+}
+
+char *load_file_as_cstring(char *localPath){
+	char *absolutePath = local_path_to_absolute(localPath);
+	FILE *f = fopen(absolutePath,"rb");
+	if (!f){
+		fatal_error("Could not open file: %s",local_path_to_absolute(localPath));
+	}
+	fseek(f,0,SEEK_END);
+	long len = ftell(f);
+	ASSERT(len > 0);
+	fseek(f,0,SEEK_SET);
+	char *str = malloc_or_die(len+1);
+	fread(str,1,len,f);
+	str[len] = 0;
+	fclose(f);
+	return str;
 }
 
 int rand_int(int n){

@@ -1,27 +1,5 @@
 #include <renderer.h>
 
-Texture spriteTexture;
-GPUMesh sprites;
-TextureVertexList spriteVerts;
-int gen_sprite(int x, int y, int width, int height){
-	TextureVertex *v = TextureVertexListMakeRoom(&spriteVerts,6);
-	float hw = (float)width/2.0f, hh = (float)height/2.0f;
-	float fx = (float)x/spriteTexture.width, fy = (float)y/spriteTexture.height;
-	float fw = (float)width/spriteTexture.width, fh = (float)height/spriteTexture.height;
-	v[0].position[0] = -hw;
-	v[0].position[1] = hh;
-	v[0].position[2] = 0.0f;
-	v[0].texcoord[0] = fx;
-	v[0].texcoord[1] = fy;
-
-	v[1].position[0] = -hw;
-	v[1].position[1] = -hh;
-	v[1].position[2] = 0.0f;
-}
-void finalize_sprites(){
-	
-}
-
 void error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Error: %s\n", description);
@@ -54,7 +32,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					static int prev_width, prev_height;
 					static bool fullscreen = false;
 					GLFWmonitor *primary = glfwGetPrimaryMonitor();
-					GLFWvidmode *vm = glfwGetVideoMode(primary);
+					const GLFWvidmode *vm = glfwGetVideoMode(primary);
 					if (!fullscreen){
 						glfwGetFramebufferSize(window,&prev_width,&prev_height);
 						glfwSetWindowMonitor(window,primary,0,0,vm->width,vm->height,GLFW_DONT_CARE);
@@ -100,10 +78,13 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 void clamp_euler(vec3 e){
-	float fp = 4*M_PI;
+	float fp = 4*(float)M_PI;
 	for (int i = 0; i < 3; i++){
-		if (e[i] > fp) e[i] -= fp;
-		else if (e[i] < -fp) e[i] += fp;
+		if (e[i] > fp){
+			e[i] -= fp;
+		} else if (e[i] < -fp){
+			e[i] += fp;
+		}
 	}
 }
 void rotate_euler(vec3 e, float dx, float dy, float sens){
@@ -122,7 +103,7 @@ GLFWwindow *create_centered_window(int width, int height, char *title){
 	ASSERT(window);
 	GLFWmonitor *primary = glfwGetPrimaryMonitor();
 	ASSERT(primary);
-	GLFWvidmode *vm = glfwGetVideoMode(primary);
+	const GLFWvidmode *vm = glfwGetVideoMode(primary);
 	ASSERT(vm);
 	glfwSetWindowPos(window,(vm->width-width)/2,(vm->height-height)/2);
 	glfwShowWindow(window);
@@ -155,11 +136,9 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
-	compile_shaders();
+	GLuint checker = load_shader("checker");
 
-	texture_from_file(&spriteTexture,"sprites");
-
-	srand(time(0));
+	srand((unsigned int)time(0));
 
 	double t0 = glfwGetTime();
  
@@ -203,7 +182,7 @@ void main(void){
 
 		mat4 persp;
 		mat4 vp;
-		glm_perspective(0.45f*M_PI,(float)width/(float)height,0.01f,100.0f,persp);
+		glm_perspective(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f,persp);
 		glm_translate_make(vp,(vec3){0,0,-5});
 		glm_mat4_mul(persp,vp,vp);
 

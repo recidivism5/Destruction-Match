@@ -29,6 +29,8 @@ add_subdirectory(third_party/whereami)
 
 include_directories(third_party/debugbreak)
 
+add_subdirectory(third_party/fast_obj)
+
 include_directories(include)
 file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 	 
@@ -44,7 +46,7 @@ if(MSVC)
 	)
 endif()
 
-target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_vorbis whereami)
+target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_vorbis whereami fast_obj)
 if( MSVC )
 	if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 
 		message( "\n\t[ WARNING ]\n\n\tCMake version lower than 3.6.\n\n\t - Please update CMake and rerun; OR\n\t - Manually set StartUp Project in Visual Studio.\n" )

@@ -56,7 +56,9 @@ void *zalloc_or_die(size_t size);
 
 void *realloc_or_die(void *ptr, size_t size);
 
-char *get_resource_path(char *name, char *extension);
+char *local_path_to_absolute(char *localPath);
+
+char *load_file_as_cstring(char *localPath);
 
 /*
 rand_int
@@ -74,7 +76,7 @@ int rand_int_range(int min, int max);
 
 /*
 fnv_1a
-Fowler–Noll–Vo hash function. https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+Fowler-Noll-Vo hash function. https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 */
 uint32_t fnv_1a(int keylen, char *key);
 
