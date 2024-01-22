@@ -15,3 +15,12 @@
     "console": "integratedTerminal",
 },
 ```
+
+### Things I want to add:
+- Spring constraint
+- Item spawner / buy menu
+- Teleporter
+- Item cannon
+- Water
+- Stovetop
+- Poop gun

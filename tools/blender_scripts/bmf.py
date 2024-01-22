@@ -94,8 +94,10 @@ def writeObject(path, obj):
                     f.write(struct.pack("<2f", uv.x, uv.y)) #uv
 
         f.write(struct.pack("<i", len(obj.material_slots))) #materialCount
-        for slot in obj.material_slots:
+        for i, slot in obj.material_slots:
             nodes = slot.material.node_tree.nodes
+
+            f.write(struct.pack("<i", 3*len(polygonGroups[i]))) #vertexCount
             
             bsdf = 0
             roughness = 0.0
@@ -119,19 +121,16 @@ def writeObject(path, obj):
                 texBytes = texFile.read()
                 f.write(struct.pack("<i",len(texBytes))) #texture len
                 f.write(texBytes) #texture
-
-        for group in polygonGroups:
-            f.write(struct.pack("<i", 3*len(group))) #vCounts
         
-        cl = getChildren(obj)
-        f.write(struct.pack("<i", len(cl))) #boxColliderCount
-        for c in cl:
-            s = c.dimensions / 2.0
-            f.write(struct.pack("<3f", s.x, s.y, s.z)) #scale
-            q = c.rotation_euler.to_quaternion()
-            f.write(struct.pack("<4f", q.w, q.x, q.y, q.z)) #orientation quaternion
-            loc = c.location
-            f.write(struct.pack("<3f", loc.x, loc.y, loc.z)) #position
+        #cl = getChildren(obj)
+        #f.write(struct.pack("<i", len(cl))) #boxColliderCount
+        #for c in cl:
+        #    s = c.dimensions / 2.0
+        #    f.write(struct.pack("<3f", s.x, s.y, s.z)) #scale
+        #    q = c.rotation_euler.to_quaternion()
+        #    f.write(struct.pack("<4f", q.w, q.x, q.y, q.z)) #orientation quaternion
+        #    loc = c.location
+        #    f.write(struct.pack("<3f", loc.x, loc.y, loc.z)) #position
 
     return {'FINISHED'}
 

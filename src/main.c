@@ -16,6 +16,7 @@ struct {
 		interact,
 		just_interacted;
 } keys;
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
 	switch (action){
 		case GLFW_PRESS:{
@@ -185,6 +186,8 @@ void main(void){
 		glm_perspective(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f,persp);
 		glm_translate_make(vp,(vec3){0,0,-5});
 		glm_mat4_mul(persp,vp,vp);
+
+		render(window,dt);
 
 		glCheckError();
  
