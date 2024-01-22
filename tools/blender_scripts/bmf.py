@@ -21,6 +21,7 @@ bl_info = {
     "category": "Import-Export"
 }
 
+import math
 import os
 import bpy
 import bmesh
@@ -84,6 +85,19 @@ def writeObject(path, obj):
         f.write(struct.pack("<i", 3*len(obj.data.polygons))) #vertexCount
         for group in polygonGroups:
             for p in group:
+
+                positions = []
+                for i in range(3):
+                    pi = p.vertices[i]
+                    v = obj.data.vertices[pi].co
+                    positions.append([v.y, v.z, v.x])
+                a = [positions[1][0]-positions[0][0],positions[1][1]-positions[0][1],positions[1][2]-positions[0][2]]
+                b = [positions[2][0]-positions[0][0],positions[2][1]-positions[0][1],positions[2][2]-positions[0][2]]
+                normal = [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
+                mag = math.sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2])
+                for i in range(3):
+                    normal[i] /= mag
+                    
                 for i in range(3):
                     pi = p.vertices[i]
                     uvi = p.loop_indices[i]
@@ -91,7 +105,7 @@ def writeObject(path, obj):
                     n = obj.data.vertices[pi].normal
                     uv = uv_layer[uvi].uv
                     f.write(struct.pack("<3f", v.y, v.z, v.x)) #position
-                    f.write(struct.pack("<3f", n.y, n.z, n.x)) #normal
+                    f.write(struct.pack("<3f", normal[0],normal[1],normal[2])) #normal
                     f.write(struct.pack("<2f", uv.x, uv.y)) #uv
 
         f.write(struct.pack("<i", len(polygonGroups))) #materialCount

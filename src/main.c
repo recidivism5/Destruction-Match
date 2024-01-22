@@ -253,7 +253,12 @@ void main(void){
 			ms_pop();
 			for (Material *mat = mi->model->materials; mat < mi->model->materials+mi->model->materialCount; mat++){
 				glBindTexture(GL_TEXTURE_2D,mat->textureId);
-				shader_set_float(phongShader,"shininess",32);
+				int shininess = 2;
+				float target = 256.0f * (1.0f - mat->roughness);
+				while ((float)shininess < target && shininess < 256){
+					shininess *= 2;
+				}
+				shader_set_float(phongShader,"shininess",(float)shininess);
 				glDrawArrays(GL_TRIANGLES,mat->vertexOffset,mat->vertexCount);
 			}
 		}
