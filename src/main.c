@@ -1,4 +1,29 @@
-#include <renderer.h>
+#include <glutil.h>
+#include <matrix_stack.h>
+
+GLuint phongShader;
+Model bottle, stove;
+
+ModelInstance modelInstances[65536];
+int modelInstanceCount = 0;
+
+void add_model_instance(Model *model, vec3 position){
+	ASSERT(modelInstanceCount < COUNT(modelInstances));
+	modelInstances[modelInstanceCount].model = model;
+	glm_vec3_copy(position,modelInstances[modelInstanceCount].position);
+	modelInstanceCount++;
+}
+
+struct {
+	AABB aabb;
+	vec3 headEuler;
+} player;
+
+void get_player_head_position(vec3 p){
+	p[0] = player.aabb.position[0];
+	p[1] = player.aabb.position[1] + 0.7f;
+	p[2] = player.aabb.position[2];
+}
 
 void error_callback(int error, const char* description)
 {
@@ -92,9 +117,10 @@ void rotate_euler(vec3 e, float dx, float dy, float sens){
 	e[1] += sens * dx;
 	e[0] += sens * dy;
 	clamp_euler(e);
+	e[0] = CLAMP(e[0],-0.5f*(float)M_PI,0.5f*(float)M_PI);
 }
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos){
-	//rotate_euler(player.head_euler,xpos,ypos,-0.001f);
+	rotate_euler(player.headEuler,(float)xpos,(float)ypos,-0.001f);
 	glfwSetCursorPos(window, 0, 0);
 }
 
@@ -137,7 +163,13 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
-	renderer_init();
+	phongShader = load_shader("phong");
+	load_model(&bottle,"bottle");
+	load_model(&stove,"stove");
+
+	add_model_instance(&bottle,(vec3){0,0,-2});
+	add_model_instance(&bottle,(vec3){0,1,0});
+	add_model_instance(&stove,(vec3){2,0,-2});
 
 	srand((unsigned int)time(0));
 
@@ -145,12 +177,10 @@ void main(void){
  
 	while (!glfwWindowShouldClose(window))
 	{
+		/////////// Update:
 		double t1 = glfwGetTime();
 		double dt = t1 - t0;
 		t0 = t1;
-
-		int width,height;
-		glfwGetFramebufferSize(window, &width, &height);
 
 		ivec2 move_dir;
 		if (keys.left && keys.right){
@@ -171,7 +201,25 @@ void main(void){
 		} else {
 			move_dir[1] = 0;
 		}
- 
+
+		mat4 crot, invCrot;
+		glm_euler_yxz(player.headEuler,crot);
+		glm_mat4_transpose_to(crot,invCrot);
+		vec3 c_right,c_backward;
+		glm_vec3(crot[0],c_right);
+		glm_vec3(crot[2],c_backward);
+		glm_vec3_scale(c_right,(float)move_dir[0],c_right);
+		glm_vec3_scale(c_backward,(float)move_dir[1],c_backward);
+		vec3 move_vec;
+		glm_vec3_add(c_right,c_backward,move_vec);
+		glm_vec3_normalize(move_vec);
+		glm_vec3_scale(move_vec,10.0f*(float)dt,move_vec);
+		glm_vec3_add(player.aabb.position,move_vec,player.aabb.position);
+
+		////////////// Render:
+		int width,height;
+		glfwGetFramebufferSize(window, &width, &height);
+
 		glClearColor(57/255.0f, 130/255.0f, 207/255.0f, 1.0f);
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
@@ -181,13 +229,34 @@ void main(void){
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
-		mat4 persp;
-		mat4 vp;
-		glm_perspective(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f,persp);
-		glm_translate_make(vp,(vec3){0,0,-5});
-		glm_mat4_mul(persp,vp,vp);
+		ms_load_identity();
+		ms_persp(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f);
+		ms_mul(invCrot);
 
-		render(window,dt);
+		vec3 playerHeadPos;
+		get_player_head_position(playerHeadPos);
+
+		glUseProgram(phongShader);
+		shader_set_int(phongShader,"uTex",0);
+		shader_set_vec3(phongShader,"cameraPos",playerHeadPos);
+		shader_set_int(phongShader,"numLights",1);
+		shader_set_vec3(phongShader,"lights[0].position",(vec3){0,1,0});
+		shader_set_vec3(phongShader,"lights[0].color",(vec3){1,1,1});
+		for (ModelInstance *mi = modelInstances; mi < modelInstances+modelInstanceCount; mi++){
+			glBindVertexArray(mi->model->vao);
+			shader_set_vec3(phongShader,"translation",mi->position);
+			ms_push();
+			vec3 t;
+			glm_vec3_sub(mi->position,playerHeadPos,t);
+			ms_trans(t);
+			shader_set_mat4(phongShader,"uMVP",ms_get(),false);
+			ms_pop();
+			for (Material *mat = mi->model->materials; mat < mi->model->materials+mi->model->materialCount; mat++){
+				glBindTexture(GL_TEXTURE_2D,mat->textureId);
+				shader_set_float(phongShader,"shininess",32);
+				glDrawArrays(GL_TRIANGLES,mat->vertexOffset,mat->vertexCount);
+			}
+		}
 
 		glCheckError();
  

@@ -56,8 +56,9 @@ def triangulate_object(obj):
     bm.to_mesh(me)
     bm.free()
 
-def getMeshTriangulated(obj):
-    me = obj.data
+def getObjTriangulated():
+    bpy.ops.object.duplicate(linked=False)
+    me = context.active_object.data
     # Get a BMesh representation
     bm = bmesh.new()
     bm.from_mesh(me)
@@ -68,7 +69,7 @@ def getMeshTriangulated(obj):
     mesh = bpy.data.meshes.new("temp")
     bm.to_mesh(me)
     bm.free()
-    return obj
+    return context.active_object
     
 def writeObject(path, obj):
     uv_layer = obj.data.uv_layers.active.data
@@ -89,15 +90,17 @@ def writeObject(path, obj):
                     v = obj.data.vertices[pi].co
                     n = obj.data.vertices[pi].normal
                     uv = uv_layer[uvi].uv
-                    f.write(struct.pack("<3f", v.x, v.y, v.z)) #position
-                    f.write(struct.pack("<3f", n.x, n.y, n.z)) #normal
+                    f.write(struct.pack("<3f", v.y, v.z, v.x)) #position
+                    f.write(struct.pack("<3f", n.y, n.z, n.x)) #normal
                     f.write(struct.pack("<2f", uv.x, uv.y)) #uv
 
-        f.write(struct.pack("<i", len(obj.material_slots))) #materialCount
-        for i, slot in obj.material_slots:
+        f.write(struct.pack("<i", len(polygonGroups))) #materialCount
+        for i in range(len(polygonGroups)):
+            group = polygonGroups[i]
+            slot = obj.material_slots[i]
             nodes = slot.material.node_tree.nodes
 
-            f.write(struct.pack("<i", 3*len(polygonGroups[i]))) #vertexCount
+            f.write(struct.pack("<i", 3*len(group))) #vertexCount
             
             bsdf = 0
             roughness = 0.0
@@ -150,8 +153,8 @@ class ObjectExport(bpy.types.Operator):
         if(context.active_object.mode == 'EDIT'):
             bpy.ops.object.mode_set(mode='OBJECT')
         
-        triangulate_object(context.active_object)
-        writeObject(self.filepath, context.active_object)
+        writeObject(self.filepath, getObjTriangulated())
+        bpy.ops.object.delete(use_global=True)
 
         return {'FINISHED'}
 

@@ -1,4 +1,4 @@
-#include <renderer.h>
+#include <glutil.h>
 #include <whereami.h>
 #include <fast_obj.h>
 
@@ -38,7 +38,7 @@ static void check_program(char *name, char *status_name, GLuint id, GLenum param
 	}
 }
 
-static GLuint load_shader(char *name){
+GLuint load_shader(char *name){
 	char *vSrc = load_file_as_cstring("res/shaders/%s/vs.glsl",name);
 	char *fSrc = load_file_as_cstring("res/shaders/%s/fs.glsl",name);
 
@@ -65,7 +65,7 @@ static GLuint load_shader(char *name){
 	return p;
 }
 
-static GLuint new_texture(unsigned char *pixels, int width, int height){
+GLuint new_texture(unsigned char *pixels, int width, int height){
 	GLuint id;
 	glGenTextures(1,&id);
 	glBindTexture(GL_TEXTURE_2D,id);
@@ -77,7 +77,7 @@ static GLuint new_texture(unsigned char *pixels, int width, int height){
 	return id;
 }
 
-static GLuint load_texture(char *name){
+GLuint load_texture(char *name){
 	char *path = local_path_to_absolute("res/textures/%s.png",name);
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, comp;
@@ -90,11 +90,11 @@ static GLuint load_texture(char *name){
 	return id;
 }
 
-static delete_texture(GLuint id){
+void delete_texture(GLuint id){
 	glDeleteTextures(1,&id);
 }
 
-static GLuint load_cubemap(char *name){
+GLuint load_cubemap(char *name){
 	GLuint id;
 	glGenTextures(1,&id);
 	glBindTexture(GL_TEXTURE_CUBE_MAP,id);
@@ -124,7 +124,7 @@ static GLuint load_cubemap(char *name){
 	return id;
 }
 
-static void load_model(Model *model, char *name){
+void load_model(Model *model, char *name){
 	char *path = local_path_to_absolute("res/models/%s.bmf",name);
 	FILE *f = fopen(path,"rb");
 	if (!f){
@@ -132,7 +132,7 @@ static void load_model(Model *model, char *name){
 	}
 	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
 	ASSERT(model->vertexCount < 65536);
-	BlinnPhongVertex *verts = malloc(model->vertexCount * sizeof(*verts));
+	PhongVertex *verts = malloc(model->vertexCount * sizeof(*verts));
 	ASSERT(1==fread(verts,model->vertexCount * sizeof(*verts),1,f));
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
@@ -163,7 +163,7 @@ static void load_model(Model *model, char *name){
 		model->boundingBox.max[i] = -INFINITY;
 		model->boundingBox.min[i] = INFINITY;
 	}
-	for (BlinnPhongVertex *v = verts; v < verts + model->vertexCount; v++){
+	for (PhongVertex *v = verts; v < verts + model->vertexCount; v++){
 		for (int i = 0; i < 3; i++){
 			if (v->position[i] < model->boundingBox.min[i]){
 				model->boundingBox.min[i] = v->position[i];
@@ -181,12 +181,12 @@ static void load_model(Model *model, char *name){
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(BlinnPhongVertex),0);
-	glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(BlinnPhongVertex),(void *)offsetof(BlinnPhongVertex,normal));
-	glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(BlinnPhongVertex),(void *)offsetof(BlinnPhongVertex,texcoord));
+	glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(PhongVertex),0);
+	glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(PhongVertex),(void *)offsetof(PhongVertex,normal));
+	glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(PhongVertex),(void *)offsetof(PhongVertex,texcoord));
 }
 
-static void delete_model(Model *model){
+void delete_model(Model *model){
 	glDeleteBuffers(1,&model->vbo);
 	glDeleteVertexArrays(1,&model->vao);
 	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
@@ -197,95 +197,18 @@ static void delete_model(Model *model){
 	memset(model,0,sizeof(*model));
 }
 
-static struct {
-	GLuint id;
-	GLint 
-		uVP,
-		uCamPos,
-		uSkybox,
-		uAmbient,
-		uReflectivity;
-} checkerShader;
-
-static struct {
-	GLuint id;
-} blinnPhongShader;
-
-static struct {
-	GLuint id, position, normal, albedoSpec, depth;
-	int width, height;
-} deferredFbo;
-
-static void init_deferred_fbo(int width, int height){
-	if (deferredFbo.id){
-		glDeleteFramebuffers(1,&deferredFbo.id);
-		delete_texture(deferredFbo.position);
-		delete_texture(deferredFbo.normal);
-		delete_texture(deferredFbo.albedoSpec);
-		memset(&deferredFbo,0,sizeof(deferredFbo));
-	}
-	glGenFramebuffers(1,&deferredFbo.id);
-	glBindFramebuffer(GL_FRAMEBUFFER,deferredFbo.id);
-
-	glGenTextures(1,&deferredFbo.position);
-	glBindTexture(GL_TEXTURE_2D,deferredFbo.position);
-	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA16F,width,height,0,GL_RGBA,GL_FLOAT,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,deferredFbo.position,0);
-
-	glGenTextures(1,&deferredFbo.normal);
-	glBindTexture(GL_TEXTURE_2D,deferredFbo.normal);
-	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA16F,width,height,0,GL_RGBA,GL_FLOAT,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT1,GL_TEXTURE_2D,deferredFbo.normal,0);
-	
-	glGenTextures(1,&deferredFbo.albedoSpec);
-	glBindTexture(GL_TEXTURE_2D,deferredFbo.albedoSpec);
-	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT2,GL_TEXTURE_2D,deferredFbo.albedoSpec,0);
-
-	unsigned int attachments[3] = {GL_COLOR_ATTACHMENT0,GL_COLOR_ATTACHMENT1,GL_COLOR_ATTACHMENT2};
-    glDrawBuffers(3,attachments);
-    
-    glGenRenderbuffers(1,&deferredFbo.depth);
-    glBindRenderbuffer(GL_RENDERBUFFER,deferredFbo.depth);
-    glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT,width,height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,deferredFbo.depth);
-	
-    ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-
-    glBindFramebuffer(GL_FRAMEBUFFER,0);
+void shader_set_mat4(GLuint id, char *name, float *mat, bool transpose){
+	glUniformMatrix4fv(glGetUniformLocation(id,name),1,transpose,mat);
 }
 
-#define GET_UNIFORM(shader,name)\
-	shader.name = glGetUniformLocation(shader.id,#name);\
-	ASSERT(0 <= shader.name);
-
-void renderer_init(){
-	checkerShader.id = load_shader("checker");
-	GET_UNIFORM(checkerShader,uVP);
-	GET_UNIFORM(checkerShader,uCamPos);
-	GET_UNIFORM(checkerShader,uSkybox);
-	GET_UNIFORM(checkerShader,uAmbient);
-	GET_UNIFORM(checkerShader,uReflectivity);
-
-	//blinnPhongShader.id = load_shader("blinn_phong");
+void shader_set_int(GLuint id, char *name, int val){
+	glUniform1i(glGetUniformLocation(id,name),val);
 }
 
-void render(GLFWwindow *window, double dt){
-	int width,height;
-	glfwGetFramebufferSize(window,&width,&height);
-	if (width != deferredFbo.width || height != deferredFbo.height){
-		init_deferred_fbo(width,height);
-	}
+void shader_set_float(GLuint id, char *name, float val){
+	glUniform1f(glGetUniformLocation(id,name),val);
+}
 
-	glBindFramebuffer(GL_FRAMEBUFFER,deferredFbo.id);
-	glClearColor(1.0f,0.0f,0.0f,1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	glBindFramebuffer(GL_FRAMEBUFFER,0);
+void shader_set_vec3(GLuint id, char *name, vec3 v){
+	glUniform3fv(glGetUniformLocation(id,name),1,v);
 }

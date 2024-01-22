@@ -12,7 +12,7 @@ typedef struct {
 	vec3 position;
 	vec3 normal;
 	vec2 texcoord;
-} BlinnPhongVertex;
+} PhongVertex;
 
 typedef struct {
 	int vertexOffset;
@@ -26,7 +26,7 @@ typedef struct {
 	int vertexCount;
 	int materialCount;
 	Material *materials;
-	AABB boundingBox;
+	MMBB boundingBox;
 	GLuint vao, vbo;
 } Model;
 
@@ -38,6 +38,24 @@ typedef struct {
 GLenum glCheckError_(const char *file, int line);
 #define glCheckError() glCheckError_(FILENAME, __LINE__)
 
-void renderer_init();
+GLuint load_shader(char *name);
 
-void render(GLFWwindow *window, double dt);
+GLuint new_texture(unsigned char *pixels, int width, int height);
+
+GLuint load_texture(char *name);
+
+void delete_texture(GLuint id);
+
+GLuint load_cubemap(char *name);
+
+void load_model(Model *model, char *name);
+
+void delete_model(Model *model);
+
+void shader_set_mat4(GLuint id, char *name, float *mat, bool transpose);
+
+void shader_set_int(GLuint id, char *name, int val);
+
+void shader_set_float(GLuint id, char *name, float val);
+
+void shader_set_vec3(GLuint id, char *name, vec3 v);
