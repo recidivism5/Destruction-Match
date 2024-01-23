@@ -153,6 +153,7 @@ void load_model(Model *model, char *name){
 		unsigned char *compressedData = malloc(compressedSize);
 		ASSERT(1==fread(compressedData,compressedSize,1,f));
 		int width,height,comp;
+		stbi_set_flip_vertically_on_load(true);
 		unsigned char *pixels = stbi_load_from_memory(compressedData,compressedSize,&width,&height,&comp,4);
 		m->textureId = new_texture(pixels,width,height);
 		free(compressedData);

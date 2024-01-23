@@ -2,15 +2,20 @@
 #include <matrix_stack.h>
 
 GLuint phongShader;
-Model bottle, stove;
+Model 
+	modelBottle,
+	modelStove,
+	modelWall,
+	modelFloor;
 
 ModelInstance modelInstances[65536];
 int modelInstanceCount = 0;
 
-void add_model_instance(Model *model, vec3 position){
+void add_model_instance(Model *model, vec3 position, int rotationY){
 	ASSERT(modelInstanceCount < COUNT(modelInstances));
 	modelInstances[modelInstanceCount].model = model;
 	glm_vec3_copy(position,modelInstances[modelInstanceCount].position);
+	modelInstances[modelInstanceCount].rotationY = rotationY;
 	modelInstanceCount++;
 }
 
@@ -164,12 +169,28 @@ void main(void){
 	glfwSwapInterval(1);
 
 	phongShader = load_shader("phong");
-	load_model(&bottle,"bottle");
-	load_model(&stove,"stove");
+	load_model(&modelBottle,"bottle");
+	load_model(&modelStove,"stove");
+	load_model(&modelWall,"wall");
+	load_model(&modelFloor,"floor");
 
-	add_model_instance(&bottle,(vec3){0,0,-2});
-	add_model_instance(&bottle,(vec3){0,1,0});
-	add_model_instance(&stove,(vec3){2,0,-2});
+	add_model_instance(&modelBottle,(vec3){0,0,-2},0);
+	add_model_instance(&modelBottle,(vec3){0,1,0},0);
+	add_model_instance(&modelStove,(vec3){2,0,-2},0);
+	
+	add_model_instance(&modelFloor,(vec3){0,0,0},0);
+	add_model_instance(&modelFloor,(vec3){3,0,0},0);
+	add_model_instance(&modelFloor,(vec3){0,0,3},0);
+	add_model_instance(&modelFloor,(vec3){3,0,3},0);
+
+	add_model_instance(&modelWall,(vec3){0,0,0},0);
+	add_model_instance(&modelWall,(vec3){3,0,0},0);
+	add_model_instance(&modelWall,(vec3){0,0,3},1);
+	add_model_instance(&modelWall,(vec3){0,0,6},1);
+	add_model_instance(&modelWall,(vec3){3,0,6},2);
+	add_model_instance(&modelWall,(vec3){6,0,6},2);
+	add_model_instance(&modelWall,(vec3){6,0,0},3);
+	add_model_instance(&modelWall,(vec3){6,0,3},3);
 
 	srand((unsigned int)time(0));
 
@@ -240,16 +261,21 @@ void main(void){
 		shader_set_int(phongShader,"uTex",0);
 		shader_set_vec3(phongShader,"cameraPos",playerHeadPos);
 		shader_set_int(phongShader,"numLights",1);
-		shader_set_vec3(phongShader,"lights[0].position",(vec3){0,1,0});
+		shader_set_vec3(phongShader,"lights[0].position",(vec3){3,3,3});
 		shader_set_vec3(phongShader,"lights[0].color",(vec3){1,1,1});
 		for (ModelInstance *mi = modelInstances; mi < modelInstances+modelInstanceCount; mi++){
-			glBindVertexArray(mi->model->vao);
-			shader_set_vec3(phongShader,"translation",mi->position);
-			ms_push();
 			vec3 t;
+			float angle = mi->rotationY * 0.5f*(float)M_PI;
+			glBindVertexArray(mi->model->vao);
+			ms_push();
 			glm_vec3_sub(mi->position,playerHeadPos,t);
 			ms_trans(t);
+			ms_rotate_y(angle);
 			shader_set_mat4(phongShader,"uMVP",ms_get(),false);
+			ms_load_identity();
+			ms_trans(mi->position);
+			ms_rotate_y(angle);
+			shader_set_mat4(phongShader,"uMTW",ms_get(),false);
 			ms_pop();
 			for (Material *mat = mi->model->materials; mat < mi->model->materials+mi->model->materialCount; mat++){
 				glBindTexture(GL_TEXTURE_2D,mat->textureId);

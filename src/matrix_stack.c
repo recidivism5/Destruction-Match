@@ -42,6 +42,10 @@ void ms_inverse_euler(vec3 e){
     mul();
 }
 
+void ms_rotate_y(float r){
+    glm_rotate_y(mat,r,mat);
+}
+
 void ms_trans(vec3 t){
     glm_translate_make(temp,t);
 	mul();

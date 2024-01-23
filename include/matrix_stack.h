@@ -14,6 +14,8 @@ void ms_euler(vec3 e);
 
 void ms_inverse_euler(vec3 e);
 
+void ms_rotate_y(float r);
+
 void ms_trans(vec3 t);
 
 void ms_ortho(float left, float right, float bottom, float top, float nearZ, float farZ);

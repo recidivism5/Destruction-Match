@@ -33,6 +33,7 @@ typedef struct {
 typedef struct {
 	Model *model;
 	vec3 position;
+	int rotationY;
 } ModelInstance;
 
 GLenum glCheckError_(const char *file, int line);
