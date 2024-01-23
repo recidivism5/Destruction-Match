@@ -8,15 +8,66 @@ Model
 	modelWall,
 	modelFloor;
 
-ModelInstance modelInstances[65536];
-int modelInstanceCount = 0;
+/*
+Okay I think I got the strat.
+concave/convex objects:
+	Concave vs Concave uses overall bounding boxes
+	Concave vs Convex uses child bounding boxes of concave, overall bounding box of convex
+Both concave and convex can be static or dynamic.
+*/
 
-void add_model_instance(Model *model, vec3 position, int rotationY){
-	ASSERT(modelInstanceCount < COUNT(modelInstances));
-	modelInstances[modelInstanceCount].model = model;
-	glm_vec3_copy(position,modelInstances[modelInstanceCount].position);
-	modelInstances[modelInstanceCount].rotationY = rotationY;
-	modelInstanceCount++;
+ModelInstance dynamicModelInstances[65536]; //dynamic use overall bounding boxes for collision
+int dynamicModelInstanceCount = 0;
+
+ModelInstance staticModelInstances[65536]; //static use child bounding boxes for collision
+int staticModelInstanceCount = 0;
+
+ModelInstance *add_dynamic_model_instance(Model *model, vec3 position, int rotationY){
+	ASSERT(dynamicModelInstanceCount < COUNT(dynamicModelInstances));
+	ModelInstance *mi = dynamicModelInstances;
+	while (mi < dynamicModelInstances+COUNT(dynamicModelInstances)){
+		if (!mi->model){
+			break;
+		}
+		mi++;
+	}
+	ASSERT(mi < dynamicModelInstances+COUNT(dynamicModelInstances));
+	mi->model = model;
+	glm_vec3_copy(position,mi->position);
+	mi->rotationY = rotationY;
+	dynamicModelInstanceCount++;
+	return mi;
+}
+
+void remove_dynamic_model_instance(ModelInstance *mi){
+	ASSERT(mi->model);
+	ASSERT(dynamicModelInstanceCount > 0);
+	mi->model = 0;
+	dynamicModelInstanceCount--;
+}
+
+ModelInstance *add_static_model_instance(Model *model, vec3 position, int rotationY){
+	ASSERT(staticModelInstanceCount < COUNT(staticModelInstances));
+	ModelInstance *mi = staticModelInstances;
+	while (mi < staticModelInstances+COUNT(staticModelInstances)){
+		if (!mi->model){
+			break;
+		}
+		mi++;
+	}
+	ASSERT(mi < staticModelInstances+COUNT(staticModelInstances));
+	mi->model = model;
+	glm_vec3_copy(position,mi->position);
+	mi->rotationY = rotationY;
+	staticModelInstanceCount++;
+	return mi;
+}
+
+void remove_static_model_instance(ModelInstance *mi){
+	ASSERT(mi->model);
+	ASSERT(staticModelInstanceCount > 0);
+	mi->model = 0;
+	staticModelInstanceCount--;
 }
 
 struct {
@@ -173,24 +224,24 @@ void main(void){
 	load_model(&modelStove,"stove");
 	load_model(&modelWall,"wall");
 	load_model(&modelFloor,"floor");
-
-	add_model_instance(&modelBottle,(vec3){0,0,-2},0);
-	add_model_instance(&modelBottle,(vec3){0,1,0},0);
-	add_model_instance(&modelStove,(vec3){2,0,-2},0);
 	
-	add_model_instance(&modelFloor,(vec3){0,0,0},0);
-	add_model_instance(&modelFloor,(vec3){3,0,0},0);
-	add_model_instance(&modelFloor,(vec3){0,0,3},0);
-	add_model_instance(&modelFloor,(vec3){3,0,3},0);
+	add_static_model_instance(&modelFloor,(vec3){0,0,0},0);
+	add_static_model_instance(&modelFloor,(vec3){3,0,0},0);
+	add_static_model_instance(&modelFloor,(vec3){0,0,3},0);
+	add_static_model_instance(&modelFloor,(vec3){3,0,3},0);
+	
+	add_static_model_instance(&modelWall,(vec3){0,0,0},0);
+	add_static_model_instance(&modelWall,(vec3){3,0,0},0);
+	add_static_model_instance(&modelWall,(vec3){0,0,3},1);
+	add_static_model_instance(&modelWall,(vec3){0,0,6},1);
+	add_static_model_instance(&modelWall,(vec3){3,0,6},2);
+	add_static_model_instance(&modelWall,(vec3){6,0,6},2);
+	add_static_model_instance(&modelWall,(vec3){6,0,0},3);
+	add_static_model_instance(&modelWall,(vec3){6,0,3},3);
 
-	add_model_instance(&modelWall,(vec3){0,0,0},0);
-	add_model_instance(&modelWall,(vec3){3,0,0},0);
-	add_model_instance(&modelWall,(vec3){0,0,3},1);
-	add_model_instance(&modelWall,(vec3){0,0,6},1);
-	add_model_instance(&modelWall,(vec3){3,0,6},2);
-	add_model_instance(&modelWall,(vec3){6,0,6},2);
-	add_model_instance(&modelWall,(vec3){6,0,0},3);
-	add_model_instance(&modelWall,(vec3){6,0,3},3);
+	player.aabb.halfExtents[0] = 0.25f;
+	player.aabb.halfExtents[1] = 0.9f;
+	player.aabb.halfExtents[2] = 0.25f;
 
 	srand((unsigned int)time(0));
 
@@ -263,7 +314,7 @@ void main(void){
 		shader_set_int(phongShader,"numLights",1);
 		shader_set_vec3(phongShader,"lights[0].position",(vec3){3,3,3});
 		shader_set_vec3(phongShader,"lights[0].color",(vec3){1,1,1});
-		for (ModelInstance *mi = modelInstances; mi < modelInstances+modelInstanceCount; mi++){
+		for (ModelInstance *mi = staticModelInstances; mi < staticModelInstances+staticModelInstanceCount; mi++){
 			vec3 t;
 			float angle = mi->rotationY * 0.5f*(float)M_PI;
 			glBindVertexArray(mi->model->vao);

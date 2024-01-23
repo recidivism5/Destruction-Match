@@ -97,7 +97,7 @@ def writeObject(path, obj):
                 mag = math.sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2])
                 for i in range(3):
                     normal[i] /= mag
-                    
+
                 for i in range(3):
                     pi = p.vertices[i]
                     uvi = p.loop_indices[i]
@@ -119,7 +119,12 @@ def writeObject(path, obj):
             bsdf = 0
             roughness = 0.0
             for n in nodes:
-                if n.type == "BSDF_GLOSSY":
+                if n.type == "BSDF_DIFFUSE":
+                    bsdf = n
+                    f.write(struct.pack("<i",0)) #glass = false
+                    roughness = nodes[2].inputs["Roughness"].default_value
+                    break
+                elif n.type == "BSDF_GLOSSY":
                     bsdf = n
                     f.write(struct.pack("<i",0)) #glass = false
                     roughness = nodes[2].inputs["Roughness"].default_value

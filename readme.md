@@ -24,3 +24,4 @@
 - Water
 - Stovetop
 - Poop gun
+- Horizontal and vertical slicer
