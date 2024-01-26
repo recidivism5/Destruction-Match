@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project (burgerland C CXX)
+project (destructionmatch C CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party)
@@ -20,6 +20,8 @@ add_subdirectory(third_party/openal-soft)
 add_subdirectory(third_party/cglm)
 
 add_subdirectory(third_party/stb_image)
+
+add_subdirectory(third_party/stb_truetype)
 
 add_subdirectory(third_party/stb_vorbis)
 
@@ -46,7 +48,7 @@ if(MSVC)
 	)
 endif()
 
-target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_vorbis whereami fast_obj)
+target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_truetype stb_vorbis whereami fast_obj)
 if( MSVC )
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 

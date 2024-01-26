@@ -1,4 +1,4 @@
-# Burger Land
+# Destruction Match
 
 ### Build:
 - Have CMake installed and the Microsoft C/C++ extension pack on VS Code
@@ -15,13 +15,3 @@
     "console": "integratedTerminal",
 },
 ```
-
-### Things I want to add:
-- Spring constraint
-- Item spawner / buy menu
-- Teleporter
-- Item cannon
-- Water
-- Stovetop
-- Poop gun
-- Horizontal and vertical slicer

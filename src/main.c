@@ -222,7 +222,7 @@ void main(void){
 	phongShader = load_shader("phong");
 	load_model(&modelBottle,"bottle");
 	load_model(&modelStove,"stove");
-	load_model(&modelWall,"wall");
+	load_model(&modelWall,"brick_wall");
 	load_model(&modelFloor,"floor");
 	
 	add_static_model_instance(&modelFloor,(vec3){0,0,0},0);
@@ -230,9 +230,9 @@ void main(void){
 	add_static_model_instance(&modelFloor,(vec3){0,0,3},0);
 	add_static_model_instance(&modelFloor,(vec3){3,0,3},0);
 	
-	add_static_model_instance(&modelWall,(vec3){0,0,0},0);
-	add_static_model_instance(&modelWall,(vec3){3,0,0},0);
-	add_static_model_instance(&modelWall,(vec3){0,0,3},1);
+	add_static_model_instance(&modelWall,(vec3){0.5f,0,0},0);
+	add_static_model_instance(&modelWall,(vec3){1.5f,0,0},0);
+	add_static_model_instance(&modelWall,(vec3){2.5f,0,0},0);
 	add_static_model_instance(&modelWall,(vec3){0,0,6},1);
 	add_static_model_instance(&modelWall,(vec3){3,0,6},2);
 	add_static_model_instance(&modelWall,(vec3){6,0,6},2);
