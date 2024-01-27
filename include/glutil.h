@@ -15,26 +15,39 @@ typedef struct {
 } PhongVertex;
 
 typedef struct {
-	int vertexOffset;
-	int vertexCount;
 	GLuint textureId;
-	int glass;
 	float roughness;
 } Material;
 
 typedef struct {
-	int vertexCount;
-	int materialCount;
-	Material *materials;
-	MMBB boundingBox;
-	GLuint vao, vbo;
-} Model;
+	int offset, count;
+} VertexOffsetCount;
 
 typedef struct {
-	Model *model;
 	vec3 position;
-	int rotationY;
-} ModelInstance;
+	VertexOffsetCount *vertexOffsetCounts;
+} FracturedObject;
+
+typedef struct {
+	int vertexCount;
+	GLuint vao, vbo;
+	int materialCount;
+	Material *materials;
+	int objectCount;
+	FracturedObject *objects;
+} FracturedModel;
+
+typedef struct {
+	vec3 position;
+	vec3 velocity;
+	vec3 angularVelocity;
+	vec4 quaternion;
+} BodyData;
+
+typedef struct {
+	FracturedModel *model;
+	BodyData *bodyDatas;
+} FracturedModelInstance;
 
 GLenum glCheckError_(const char *file, int line);
 #define glCheckError() glCheckError_(FILENAME, __LINE__)
@@ -49,9 +62,9 @@ void delete_texture(GLuint id);
 
 GLuint load_cubemap(char *name);
 
-void load_model(Model *model, char *name);
+void load_fractured_model(FracturedModel *model, char *name);
 
-void delete_model(Model *model);
+void delete_fractured_model(FracturedModel *model);
 
 void shader_set_mat4(GLuint id, char *name, float *mat, bool transpose);
 

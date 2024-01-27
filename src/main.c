@@ -2,72 +2,24 @@
 #include <matrix_stack.h>
 
 GLuint phongShader;
-Model 
-	modelBottle,
-	modelStove,
-	modelWall,
-	modelFloor;
 
-/*
-Okay I think I got the strat.
-concave/convex objects:
-	Concave vs Concave uses overall bounding boxes
-	Concave vs Convex uses child bounding boxes of concave, overall bounding box of convex
-Both concave and convex can be static or dynamic.
-*/
+FracturedModel banana;
 
-ModelInstance dynamicModelInstances[65536]; //dynamic use overall bounding boxes for collision
-int dynamicModelInstanceCount = 0;
+FracturedModelInstance modelInstances[65536];
+int modelInstanceCount;
 
-ModelInstance staticModelInstances[65536]; //static use child bounding boxes for collision
-int staticModelInstanceCount = 0;
-
-ModelInstance *add_dynamic_model_instance(Model *model, vec3 position, int rotationY){
-	ASSERT(dynamicModelInstanceCount < COUNT(dynamicModelInstances));
-	ModelInstance *mi = dynamicModelInstances;
-	while (mi < dynamicModelInstances+COUNT(dynamicModelInstances)){
-		if (!mi->model){
-			break;
-		}
-		mi++;
-	}
-	ASSERT(mi < dynamicModelInstances+COUNT(dynamicModelInstances));
+void add_model_instance(FracturedModel *model, vec3 position){
+	ASSERT(modelInstanceCount < COUNT(modelInstances));
+	FracturedModelInstance *mi = modelInstances + modelInstanceCount++;
 	mi->model = model;
-	glm_vec3_copy(position,mi->position);
-	mi->rotationY = rotationY;
-	dynamicModelInstanceCount++;
-	return mi;
-}
-
-void remove_dynamic_model_instance(ModelInstance *mi){
-	ASSERT(mi->model);
-	ASSERT(dynamicModelInstanceCount > 0);
-	mi->model = 0;
-	dynamicModelInstanceCount--;
-}
-
-ModelInstance *add_static_model_instance(Model *model, vec3 position, int rotationY){
-	ASSERT(staticModelInstanceCount < COUNT(staticModelInstances));
-	ModelInstance *mi = staticModelInstances;
-	while (mi < staticModelInstances+COUNT(staticModelInstances)){
-		if (!mi->model){
-			break;
-		}
-		mi++;
+	mi->bodyDatas = malloc(model->objectCount * sizeof(*mi->bodyDatas));
+	for (int i = 0; i < model->objectCount; i++){
+		BodyData *bd = mi->bodyDatas + i;
+		glm_vec3_copy(model->objects[i].position,bd->position);
+		glm_vec3_zero(bd->velocity);
+		glm_quat_identity(bd->quaternion);
+		glm_vec3_zero(bd->angularVelocity);
 	}
-	ASSERT(mi < staticModelInstances+COUNT(staticModelInstances));
-	mi->model = model;
-	glm_vec3_copy(position,mi->position);
-	mi->rotationY = rotationY;
-	staticModelInstanceCount++;
-	return mi;
-}
-
-void remove_static_model_instance(ModelInstance *mi){
-	ASSERT(mi->model);
-	ASSERT(staticModelInstanceCount > 0);
-	mi->model = 0;
-	staticModelInstanceCount--;
 }
 
 struct {
@@ -220,24 +172,8 @@ void main(void){
 	glfwSwapInterval(1);
 
 	phongShader = load_shader("phong");
-	load_model(&modelBottle,"bottle");
-	load_model(&modelStove,"stove");
-	load_model(&modelWall,"brick_wall");
-	load_model(&modelFloor,"floor");
-	
-	add_static_model_instance(&modelFloor,(vec3){0,0,0},0);
-	add_static_model_instance(&modelFloor,(vec3){3,0,0},0);
-	add_static_model_instance(&modelFloor,(vec3){0,0,3},0);
-	add_static_model_instance(&modelFloor,(vec3){3,0,3},0);
-	
-	add_static_model_instance(&modelWall,(vec3){0.5f,0,0},0);
-	add_static_model_instance(&modelWall,(vec3){1.5f,0,0},0);
-	add_static_model_instance(&modelWall,(vec3){2.5f,0,0},0);
-	add_static_model_instance(&modelWall,(vec3){0,0,6},1);
-	add_static_model_instance(&modelWall,(vec3){3,0,6},2);
-	add_static_model_instance(&modelWall,(vec3){6,0,6},2);
-	add_static_model_instance(&modelWall,(vec3){6,0,0},3);
-	add_static_model_instance(&modelWall,(vec3){6,0,3},3);
+	load_fractured_model(&banana,"banana");
+	add_model_instance(&banana,(vec3){0,0,0});
 
 	player.aabb.halfExtents[0] = 0.25f;
 	player.aabb.halfExtents[1] = 0.9f;
@@ -314,21 +250,24 @@ void main(void){
 		shader_set_int(phongShader,"numLights",1);
 		shader_set_vec3(phongShader,"lights[0].position",(vec3){3,3,3});
 		shader_set_vec3(phongShader,"lights[0].color",(vec3){1,1,1});
-		for (ModelInstance *mi = staticModelInstances; mi < staticModelInstances+staticModelInstanceCount; mi++){
-			vec3 t;
-			float angle = mi->rotationY * 0.5f*(float)M_PI;
+		for (FracturedModelInstance *mi = modelInstances; mi < modelInstances+modelInstanceCount; mi++){
 			glBindVertexArray(mi->model->vao);
+			FracturedObject *obj = mi->model->objects;
+			mat4 rot;
+			glm_quat_mat4(mi->bodyDatas[0].quaternion,rot);
 			ms_push();
-			glm_vec3_sub(mi->position,playerHeadPos,t);
+			vec3 t;
+			glm_vec3_sub(mi->bodyDatas[0].position,playerHeadPos,t);
 			ms_trans(t);
-			ms_rotate_y(angle);
+			ms_mul(rot);
 			shader_set_mat4(phongShader,"uMVP",ms_get(),false);
 			ms_load_identity();
-			ms_trans(mi->position);
-			ms_rotate_y(angle);
+			ms_trans(mi->bodyDatas[0].position);
+			ms_mul(rot);
 			shader_set_mat4(phongShader,"uMTW",ms_get(),false);
 			ms_pop();
-			for (Material *mat = mi->model->materials; mat < mi->model->materials+mi->model->materialCount; mat++){
+			for (int i = 0; i < mi->model->materialCount; i++){
+				Material *mat = mi->model->materials + i;
 				glBindTexture(GL_TEXTURE_2D,mat->textureId);
 				int shininess = 2;
 				float target = 256.0f * (1.0f - mat->roughness);
@@ -336,7 +275,8 @@ void main(void){
 					shininess *= 2;
 				}
 				shader_set_float(phongShader,"shininess",(float)shininess);
-				glDrawArrays(GL_TRIANGLES,mat->vertexOffset,mat->vertexCount);
+				VertexOffsetCount *vic = mi->model->objects[0].vertexOffsetCounts+i;
+				glDrawArrays(GL_TRIANGLES,vic->offset,vic->count);
 			}
 		}
 

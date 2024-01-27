@@ -124,12 +124,13 @@ GLuint load_cubemap(char *name){
 	return id;
 }
 
-void load_model(Model *model, char *name){
-	char *path = local_path_to_absolute("res/models/%s.bmf",name);
+void load_fractured_model(FracturedModel *model, char *name){
+	char *path = local_path_to_absolute("res/models/%s.fmf",name);
 	FILE *f = fopen(path,"rb");
 	if (!f){
 		fatal_error("Failed to open model: %s",path);
 	}
+	
 	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
 	ASSERT(model->vertexCount < 65536);
 	PhongVertex *verts = malloc(model->vertexCount * sizeof(*verts));
@@ -137,16 +138,9 @@ void load_model(Model *model, char *name){
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
 	model->materials = malloc(model->materialCount * sizeof(*model->materials));
-	int vertexOffset = 0;
 	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
-		m->vertexOffset = vertexOffset;
-		ASSERT(1==fread(&m->vertexCount,sizeof(m->vertexCount),1,f));
-		ASSERT(m->vertexCount <= model->vertexCount-vertexOffset);
-		vertexOffset += m->vertexCount;
-		ASSERT(1==fread(&m->glass,sizeof(m->glass),1,f));
-		ASSERT(0 <= m->glass && m->glass <= 1);
-		ASSERT(1==fread(&m->roughness,sizeof(m->roughness),1,f));
-		ASSERT(0.0f <= m->roughness && m->roughness <= 1.0f);
+		m->roughness = 0.0f;//bruh
+
 		int compressedSize;
 		ASSERT(1==fread(&compressedSize,sizeof(compressedSize),1,f));
 		ASSERT(0 < compressedSize && compressedSize < 524288);
@@ -159,20 +153,23 @@ void load_model(Model *model, char *name){
 		free(compressedData);
 		free(pixels);
 	}
-	fclose(f);
-	for (int i = 0; i < 3; i++){
-		model->boundingBox.max[i] = -INFINITY;
-		model->boundingBox.min[i] = INFINITY;
-	}
-	for (PhongVertex *v = verts; v < verts + model->vertexCount; v++){
-		for (int i = 0; i < 3; i++){
-			if (v->position[i] < model->boundingBox.min[i]){
-				model->boundingBox.min[i] = v->position[i];
-			} else if (v->position[i] > model->boundingBox.max[i]){
-				model->boundingBox.max[i] = v->position[i];
-			}
+	ASSERT(1==fread(&model->objectCount,sizeof(model->objectCount),1,f));
+	ASSERT(model->objectCount > 0 && model->objectCount < 256);
+	model->objects = malloc(model->objectCount * sizeof(*model->objects));
+	int vertexOffset = 0;
+	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
+		ASSERT(1==fread(obj->position,sizeof(obj->position),1,f));
+		obj->vertexOffsetCounts = malloc(model->materialCount * sizeof(*obj->vertexOffsetCounts));
+		for (VertexOffsetCount *vic = obj->vertexOffsetCounts; vic < obj->vertexOffsetCounts + model->materialCount; vic++){
+			vic->offset = vertexOffset;
+			ASSERT(1==fread(&vic->count,sizeof(vic->count),1,f));
+			ASSERT(vic->count <= model->vertexCount-vertexOffset);
+			vertexOffset += vic->count;
 		}
 	}
+	
+	fclose(f);
+
 	glGenVertexArrays(1,&model->vao);
 	glBindVertexArray(model->vao);
 	glGenBuffers(1,&model->vbo);
@@ -187,7 +184,7 @@ void load_model(Model *model, char *name){
 	glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(PhongVertex),(void *)offsetof(PhongVertex,texcoord));
 }
 
-void delete_model(Model *model){
+void delete_fractured_model(FracturedModel *model){
 	glDeleteBuffers(1,&model->vbo);
 	glDeleteVertexArrays(1,&model->vao);
 	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
@@ -195,6 +192,12 @@ void delete_model(Model *model){
 	}
 	ASSERT(model->materials);
 	free(model->materials);
+	ASSERT(model->objects);
+	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
+		ASSERT(obj->vertexOffsetCounts);
+		free(obj->vertexOffsetCounts);
+	}
+	free(model->objects);
 	memset(model,0,sizeof(*model));
 }
 
