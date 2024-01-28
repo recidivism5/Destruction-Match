@@ -4,9 +4,14 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
+#include <cglm/cglm.h>
 
 #include <base.h>
-#include <aabb.h>
+
+typedef struct {
+	GLuint vao, vbo;
+	int vertexCount;
+} GPUMesh;
 
 typedef struct {
 	vec3 position;

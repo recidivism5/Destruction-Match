@@ -1,7 +1,11 @@
 #include <glutil.h>
 #include <matrix_stack.h>
+#include <aabb.h>
+#include <grid.h>
 
-GLuint phongShader;
+GLuint phongShader,gridShader;
+
+GLuint leaflessTrees;
 
 FracturedModel banana;
 
@@ -172,8 +176,13 @@ void main(void){
 	glfwSwapInterval(1);
 
 	phongShader = load_shader("phong");
+	gridShader = load_shader("grid");
+	leaflessTrees = load_cubemap("leafless_trees");
 	load_fractured_model(&banana,"banana");
 	add_model_instance(&banana,(vec3){0,0,0});
+
+	GPUMesh grid;
+	gen_rounded_grid(&grid,5,5,0.25f);
 
 	player.aabb.halfExtents[0] = 0.25f;
 	player.aabb.halfExtents[1] = 0.9f;
@@ -243,6 +252,18 @@ void main(void){
 
 		vec3 playerHeadPos;
 		get_player_head_position(playerHeadPos);
+
+		{
+			glUseProgram(gridShader);
+			glBindVertexArray(grid.vao);
+			vec3 t;
+			glm_vec3_negate_to(playerHeadPos,t);
+			ms_push();
+			ms_trans(t);
+			shader_set_mat4(gridShader,"uVP",ms_get(),false);
+			ms_pop();
+			glDrawArrays(GL_TRIANGLES,0,grid.vertexCount);
+		}
 
 		glUseProgram(phongShader);
 		shader_set_int(phongShader,"uTex",0);

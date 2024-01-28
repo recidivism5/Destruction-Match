@@ -10,8 +10,6 @@
 #include <boxer/boxer.h>
 #include <debugbreak.h>
 
-#include <base.h>
-
 #undef near //fuck deez macros lol
 #undef far
 #undef min
@@ -46,12 +44,6 @@
 #endif
 
 void fatal_error(char *format, ...);
-
-void *malloc_or_die(size_t size);
-
-void *zalloc_or_die(size_t size);
-
-void *realloc_or_die(void *ptr, size_t size);
 
 char *format_string(char *format, ...);
 

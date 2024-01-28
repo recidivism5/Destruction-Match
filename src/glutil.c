@@ -104,7 +104,7 @@ GLuint load_cubemap(char *name){
 		"nx","ny","nz",
 	};
 	for(int i = 0; i < COUNT(faces); i++){
-		char *path = local_path_to_absolute("res/cubemaps/%s/%s.png",name,faces[i]);
+		char *path = local_path_to_absolute("res/cubemaps/%s/%s.jpg",name,faces[i]);
 		int width, height, comp;
 		unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
 		if (!pixels){

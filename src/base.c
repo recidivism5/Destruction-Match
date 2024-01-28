@@ -14,24 +14,6 @@ void fatal_error(char *format, ...){
 	exit(1);
 }
 
-void *malloc_or_die(size_t size){
-	void *p = malloc(size);
-	ASSERT(p);
-	return p;
-}
-
-void *zalloc_or_die(size_t size){
-	void *p = calloc(1,size);
-	ASSERT(p);
-	return p;
-}
-
-void *realloc_or_die(void *ptr, size_t size){
-	void *p = realloc(ptr,size);
-	ASSERT(p);
-	return p;
-}
-
 static char fmtStr[4096];
 char *format_string(char *format, ...){
 	va_list args;
@@ -95,7 +77,8 @@ char *load_file_as_cstring(char *format, ...){
 	long len = ftell(f);
 	ASSERT(len > 0);
 	fseek(f,0,SEEK_SET);
-	char *str = malloc_or_die(len+1);
+	char *str = malloc(len+1);
+	ASSERT(str);
 	fread(str,1,len,f);
 	str[len] = 0;
 	fclose(f);
