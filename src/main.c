@@ -135,8 +135,6 @@ void main(void){
 	gen_font_atlas(&singleDay,"SingleDay-Regular",32);
 
 	phongShader = load_shader("phong");
-	gridShader = load_shader("grid");
-	skyboxShader = load_shader("skybox");
 	screenShader = load_shader("screen");
 	backgroundShader = load_shader("background");
 
