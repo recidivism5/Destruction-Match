@@ -22,3 +22,4 @@
 - Campaign (Juice Bar, Beach, etc.)
 - Endless mode (Random backgrounds and objects)
 - Unlock themes and backgrounds for endless mode
+- Unlock custom cursors

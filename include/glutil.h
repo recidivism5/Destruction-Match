@@ -10,6 +10,11 @@
 #include <base.h>
 
 typedef struct {
+	int width, height;
+	GLuint id;
+} Texture;
+
+typedef struct {
 	GLuint id;
 	int width;
 	stbtt_bakedchar *bakedChars;
@@ -25,6 +30,12 @@ typedef struct {
 	vec3 normal;
 	vec2 texcoord;
 } PhongVertex;
+
+typedef struct {
+	vec3 position;
+	vec2 texcoord;
+	vec3 color;
+} ScreenVertex;
 
 typedef struct {
 	GLuint textureId;
@@ -68,7 +79,7 @@ GLuint load_shader(char *name);
 
 GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolated);
 
-GLuint load_texture(char *name, bool interpolated);
+void load_texture(Texture *t, char *name, bool interpolated);
 
 void delete_texture(GLuint id);
 

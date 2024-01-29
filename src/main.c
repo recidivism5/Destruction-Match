@@ -5,9 +5,9 @@
 
 FontAtlas singleDay;
 
-GLuint phongShader,gridShader,skyboxShader,screenShader,backgroundShader;
+GLuint phongShader,screenShader,backgroundShader;
 
-GLuint beachBackground;
+Texture beachBackground, checker;
 
 FracturedModel banana;
 
@@ -25,6 +25,26 @@ void add_model_instance(FracturedModel *model, vec3 position){
 		glm_vec3_zero(bd->velocity);
 		glm_quat_identity(bd->quaternion);
 		glm_vec3_zero(bd->angularVelocity);
+	}
+}
+
+ScreenVertex screenVerts[65536];
+GPUMesh screenMesh;
+void begin_screen_triangles(int scrWidth, int scrHeight, int texWidth, int texHeight){
+	glUseProgram(screenShader);
+	shader_set_int(screenShader,"clientWidth",scrWidth);
+	shader_set_int(screenShader,"clientHeight",scrHeight);
+	shader_set_int(screenShader,"textureWidth",texWidth);
+	shader_set_int(screenShader,"textureHeight",texHeight);
+}
+
+void append_screen_vertex()
+
+void end_screen_triangles(){
+	glUseProgram(screenShader);
+	if (!screenMesh.vao){
+		glGenVertexArrays(1,&screenMesh.vao);
+		glGenBuffers(1,&screenMesh.vbo);
 	}
 }
 
@@ -138,9 +158,10 @@ void main(void){
 	screenShader = load_shader("screen");
 	backgroundShader = load_shader("background");
 
-	beachBackground = load_texture("backgrounds/beach.jpg",true);
+	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
+	load_texture(&checker,"textures/checker.png",false);
 
-	load_fractured_model(&banana,"banana");
+	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
 
 	for (int y = 0; y < 8; y++){
 		for (int x = 0; x < 8; x++){
@@ -179,9 +200,14 @@ void main(void){
 			glDepthFunc(GL_LEQUAL);
 			glUseProgram(backgroundShader);
 			shader_set_int(backgroundShader,"uTex",0);
-			glBindTexture(GL_TEXTURE_2D,beachBackground);
+			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glDrawArrays(GL_TRIANGLE_STRIP,0,4);
 			glDepthFunc(GL_LESS);
+		}
+
+		{
+			glUseProgram(screenShader);
+			GPUMesh 
 		}
 
 		{

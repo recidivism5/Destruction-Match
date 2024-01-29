@@ -77,17 +77,16 @@ GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolat
 	return id;
 }
 
-GLuint load_texture(char *name, bool interpolated){
-	char *path = local_path_to_absolute("res/textures/%s",name);
+void load_texture(Texture *t, char *name, bool interpolated){
+	char *path = local_path_to_absolute("res/%s",name);
 	stbi_set_flip_vertically_on_load(true);
-	int width, height, comp;
-	unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
+	int comp;
+	unsigned char *pixels = stbi_load(path,&t->width,&t->height,&comp,4);
 	if (!pixels){
 		fatal_error("Failed to load texture:\n%s",path);
 	}
-	GLuint id = new_texture(pixels,width,height,interpolated);
+	t->id = new_texture(pixels,t->width,t->height,interpolated);
 	free(pixels);
-	return id;
 }
 
 void delete_texture(GLuint id){
@@ -157,7 +156,7 @@ GLuint load_cubemap(char *name){
 }
 
 void load_fractured_model(FracturedModel *model, char *name){
-	char *path = local_path_to_absolute("res/models/%s.fmf",name);
+	char *path = local_path_to_absolute("res/%s.fmf",name);
 	FILE *f = fopen(path,"rb");
 	if (!f){
 		fatal_error("Failed to open model: %s",path);
