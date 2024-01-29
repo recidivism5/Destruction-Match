@@ -68,7 +68,7 @@ GLuint load_shader(char *name);
 
 GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolated);
 
-GLuint load_texture(char *name);
+GLuint load_texture(char *name, bool interpolated);
 
 void delete_texture(GLuint id);
 

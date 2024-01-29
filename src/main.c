@@ -5,9 +5,9 @@
 
 FontAtlas singleDay;
 
-GLuint phongShader,gridShader,skyboxShader,screenShader;
+GLuint phongShader,gridShader,skyboxShader,screenShader,backgroundShader;
 
-GLuint leaflessTrees;
+GLuint beachBackground;
 
 FracturedModel banana;
 
@@ -183,35 +183,15 @@ void main(void){
 	gridShader = load_shader("grid");
 	skyboxShader = load_shader("skybox");
 	screenShader = load_shader("screen");
+	backgroundShader = load_shader("background");
 
-	leaflessTrees = load_cubemap("leafless_trees");
-	
+	beachBackground = load_texture("backgrounds/beach.jpg",true);
+
 	load_fractured_model(&banana,"banana");
 	add_model_instance(&banana,(vec3){0,0,0});
 
 	GPUMesh grid;
 	gen_rounded_grid(&grid,4,5,0.25f);
-
-	GPUMesh screenQuad;
-	{
-		vec2 scrVerts[] = {
-			-1,-1,
-			1,-1,
-			1,1,
-
-			1,1,
-			-1,1,
-			-1,-1
-		};
-		glGenVertexArrays(1,&screenQuad.vao);
-		glBindVertexArray(screenQuad.vao);
-		glGenBuffers(1,&screenQuad.vbo);
-		glBindBuffer(GL_ARRAY_BUFFER,screenQuad.vbo);
-		glBufferData(GL_ARRAY_BUFFER,sizeof(scrVerts),scrVerts,GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(*scrVerts),(void *)0);
-		screenQuad.vertexCount = 6;
-	}
 
 	player.aabb.halfExtents[0] = 0.25f;
 	player.aabb.halfExtents[1] = 0.9f;
@@ -283,22 +263,12 @@ void main(void){
 		get_player_head_position(playerHeadPos);
 
 		{
-			glUseProgram(gridShader);
-			glBindVertexArray(grid.vao);
-			vec3 t;
-			glm_vec3_negate_to(playerHeadPos,t);
-			ms_push();
-			ms_trans(t);
-			shader_set_mat4(gridShader,"uVP",ms_get(),false);
-			shader_set_vec3(gridShader,"uCamPos",playerHeadPos);
-			shader_set_int(gridShader,"uSkybox",0);
-			glBindTexture(GL_TEXTURE_CUBE_MAP,leaflessTrees);
-			shader_set_float(gridShader,"uAmbient",0.25f);
-			shader_set_float(gridShader,"uReflectivity",0.5f);
-			ms_pop();
-			//glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
-			glDrawArrays(GL_TRIANGLES,0,grid.vertexCount);
-			//glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+			glDepthFunc(GL_LEQUAL);
+			glUseProgram(backgroundShader);
+			shader_set_int(backgroundShader,"uTex",0);
+			glBindTexture(GL_TEXTURE_2D,beachBackground);
+			glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+			glDepthFunc(GL_LESS);
 		}
 
 		glUseProgram(phongShader);
@@ -335,19 +305,6 @@ void main(void){
 				VertexOffsetCount *vic = mi->model->objects[0].vertexOffsetCounts+i;
 				glDrawArrays(GL_TRIANGLES,vic->offset,vic->count);
 			}
-		}
-
-		{
-			glUseProgram(skyboxShader);
-			glDepthFunc(GL_LEQUAL); // let our quad pass the depth test at 1.0
-			shader_set_int(skyboxShader,"uSkybox",0);
-			mat4 invVP;
-			glm_mat4_inv((vec4 *)ms_get(),invVP);
-			shader_set_mat4(skyboxShader,"uInvVP",(float *)invVP,false);
-			glBindTexture(GL_TEXTURE_CUBE_MAP,leaflessTrees);
-			glBindVertexArray(screenQuad.vao);
-			glDrawArrays(GL_TRIANGLES,0,screenQuad.vertexCount);
-			glDepthFunc(GL_LESS); // use default depth test
 		}
 
 		glCheckError();

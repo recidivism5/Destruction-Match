@@ -77,15 +77,15 @@ GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolat
 	return id;
 }
 
-GLuint load_texture(char *name){
-	char *path = local_path_to_absolute("res/textures/%s.png",name);
+GLuint load_texture(char *name, bool interpolated){
+	char *path = local_path_to_absolute("res/textures/%s",name);
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, comp;
 	unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
 	if (!pixels){
 		fatal_error("Failed to load texture:\n%s",path);
 	}
-	GLuint id = new_texture(pixels,width,height,false);
+	GLuint id = new_texture(pixels,width,height,interpolated);
 	free(pixels);
 	return id;
 }
@@ -118,6 +118,8 @@ void gen_font_atlas(FontAtlas *atlas, char *name, int height){
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D,0,GL_RED,atlas->width,atlas->width,0,GL_RED,GL_UNSIGNED_BYTE,bmp);
+	GLint swizzleMask[] = {GL_ONE, GL_ONE, GL_ONE, GL_RED};
+	glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
 
 	free(ttf);
 	free(bmp);
