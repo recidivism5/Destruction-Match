@@ -15,3 +15,10 @@
     "console": "integratedTerminal",
 },
 ```
+
+### Notes:
+- New Game (3 profiles)
+- Continue
+- Campaign (Juice Bar, Beach, etc.)
+- Endless mode (Random backgrounds and objects)
+- Unlock themes and backgrounds for endless mode

@@ -3,10 +3,17 @@
 #include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include <stb_image.h>
 #include <cglm/cglm.h>
+#include <stb_image.h>
+#include <stb_truetype.h>
 
 #include <base.h>
+
+typedef struct {
+	GLuint id;
+	int width;
+	stbtt_bakedchar *bakedChars;
+} FontAtlas;
 
 typedef struct {
 	GLuint vao, vbo;
@@ -59,11 +66,13 @@ GLenum glCheckError_(const char *file, int line);
 
 GLuint load_shader(char *name);
 
-GLuint new_texture(unsigned char *pixels, int width, int height);
+GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolated);
 
 GLuint load_texture(char *name);
 
 void delete_texture(GLuint id);
+
+void gen_font_atlas(FontAtlas *atlas, char *name, int height);
 
 GLuint load_cubemap(char *name);
 

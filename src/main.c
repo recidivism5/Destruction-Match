@@ -3,7 +3,9 @@
 #include <aabb.h>
 #include <grid.h>
 
-GLuint phongShader,gridShader;
+FontAtlas singleDay;
+
+GLuint phongShader,gridShader,skyboxShader,screenShader;
 
 GLuint leaflessTrees;
 
@@ -160,7 +162,7 @@ void main(void){
 #ifdef __APPLE__
    	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // fucking apple
 #endif
-	GLFWwindow *window = create_centered_window(640,480,"Burger Land");
+	GLFWwindow *window = create_centered_window(640,480,"Match Mayhem");
  
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	if (glfwRawMouseMotionSupported()){
@@ -175,14 +177,41 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
+	gen_font_atlas(&singleDay,"SingleDay-Regular",32);
+
 	phongShader = load_shader("phong");
 	gridShader = load_shader("grid");
+	skyboxShader = load_shader("skybox");
+	screenShader = load_shader("screen");
+
 	leaflessTrees = load_cubemap("leafless_trees");
+	
 	load_fractured_model(&banana,"banana");
 	add_model_instance(&banana,(vec3){0,0,0});
 
 	GPUMesh grid;
-	gen_rounded_grid(&grid,5,5,0.25f);
+	gen_rounded_grid(&grid,4,5,0.25f);
+
+	GPUMesh screenQuad;
+	{
+		vec2 scrVerts[] = {
+			-1,-1,
+			1,-1,
+			1,1,
+
+			1,1,
+			-1,1,
+			-1,-1
+		};
+		glGenVertexArrays(1,&screenQuad.vao);
+		glBindVertexArray(screenQuad.vao);
+		glGenBuffers(1,&screenQuad.vbo);
+		glBindBuffer(GL_ARRAY_BUFFER,screenQuad.vbo);
+		glBufferData(GL_ARRAY_BUFFER,sizeof(scrVerts),scrVerts,GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(*scrVerts),(void *)0);
+		screenQuad.vertexCount = 6;
+	}
 
 	player.aabb.halfExtents[0] = 0.25f;
 	player.aabb.halfExtents[1] = 0.9f;
@@ -261,8 +290,15 @@ void main(void){
 			ms_push();
 			ms_trans(t);
 			shader_set_mat4(gridShader,"uVP",ms_get(),false);
+			shader_set_vec3(gridShader,"uCamPos",playerHeadPos);
+			shader_set_int(gridShader,"uSkybox",0);
+			glBindTexture(GL_TEXTURE_CUBE_MAP,leaflessTrees);
+			shader_set_float(gridShader,"uAmbient",0.25f);
+			shader_set_float(gridShader,"uReflectivity",0.5f);
 			ms_pop();
+			//glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
 			glDrawArrays(GL_TRIANGLES,0,grid.vertexCount);
+			//glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 		}
 
 		glUseProgram(phongShader);
@@ -299,6 +335,19 @@ void main(void){
 				VertexOffsetCount *vic = mi->model->objects[0].vertexOffsetCounts+i;
 				glDrawArrays(GL_TRIANGLES,vic->offset,vic->count);
 			}
+		}
+
+		{
+			glUseProgram(skyboxShader);
+			glDepthFunc(GL_LEQUAL); // let our quad pass the depth test at 1.0
+			shader_set_int(skyboxShader,"uSkybox",0);
+			mat4 invVP;
+			glm_mat4_inv((vec4 *)ms_get(),invVP);
+			shader_set_mat4(skyboxShader,"uInvVP",(float *)invVP,false);
+			glBindTexture(GL_TEXTURE_CUBE_MAP,leaflessTrees);
+			glBindVertexArray(screenQuad.vao);
+			glDrawArrays(GL_TRIANGLES,0,screenQuad.vertexCount);
+			glDepthFunc(GL_LESS); // use default depth test
 		}
 
 		glCheckError();

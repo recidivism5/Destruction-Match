@@ -65,14 +65,14 @@ GLuint load_shader(char *name){
 	return p;
 }
 
-GLuint new_texture(unsigned char *pixels, int width, int height){
+GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolated){
 	GLuint id;
 	glGenTextures(1,&id);
 	glBindTexture(GL_TEXTURE_2D,id);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,interpolated ? GL_LINEAR : GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,interpolated ? GL_LINEAR : GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
 	return id;
 }
@@ -85,7 +85,7 @@ GLuint load_texture(char *name){
 	if (!pixels){
 		fatal_error("Failed to load texture:\n%s",path);
 	}
-	GLuint id = new_texture(pixels,width,height);
+	GLuint id = new_texture(pixels,width,height,false);
 	free(pixels);
 	return id;
 }
@@ -94,19 +94,49 @@ void delete_texture(GLuint id){
 	glDeleteTextures(1,&id);
 }
 
+void gen_font_atlas(FontAtlas *atlas, char *name, int height){
+	int size;
+	unsigned char *ttf = load_file(&size,"res/fonts/%s.ttf",name);
+	atlas->width = 256;
+	int numChars = '~'-' '+1;
+	atlas->bakedChars = malloc(numChars * sizeof(*atlas->bakedChars));
+	ASSERT(atlas->bakedChars);
+	unsigned char *bmp;
+	while (1){
+		bmp = malloc(atlas->width*atlas->width);
+		ASSERT(bmp);
+		int r = stbtt_BakeFontBitmap(ttf,0,(float)height,bmp,atlas->width,atlas->width,' ',numChars,atlas->bakedChars);
+		if (r > 0) break;
+		free(bmp);
+		atlas->width *= 2;
+	}
+
+	glGenTextures(1,&atlas->id);
+	glBindTexture(GL_TEXTURE_2D,atlas->id);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D,0,GL_RED,atlas->width,atlas->width,0,GL_RED,GL_UNSIGNED_BYTE,bmp);
+
+	free(ttf);
+	free(bmp);
+}
+
 GLuint load_cubemap(char *name){
 	GLuint id;
 	glGenTextures(1,&id);
 	glBindTexture(GL_TEXTURE_CUBE_MAP,id);
-	stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(false);
 	const char *faces[] = {
-		"px","py","pz",
-		"nx","ny","nz",
+		"px","nx",
+		"py","ny",
+		"pz","nz",
 	};
 	for(int i = 0; i < COUNT(faces); i++){
 		char *path = local_path_to_absolute("res/cubemaps/%s/%s.jpg",name,faces[i]);
 		int width, height, comp;
-		unsigned char *pixels = stbi_load(path,&width,&height,&comp,4);
+		unsigned char *pixels = stbi_load(path,&width,&height,&comp,3);
 		if (!pixels){
 			fatal_error("Failed to load texture:\n%s",path);
 		}
@@ -149,7 +179,7 @@ void load_fractured_model(FracturedModel *model, char *name){
 		int width,height,comp;
 		stbi_set_flip_vertically_on_load(true);
 		unsigned char *pixels = stbi_load_from_memory(compressedData,compressedSize,&width,&height,&comp,4);
-		m->textureId = new_texture(pixels,width,height);
+		m->textureId = new_texture(pixels,width,height,false);
 		free(compressedData);
 		free(pixels);
 	}

@@ -49,6 +49,8 @@ char *format_string(char *format, ...);
 
 char *local_path_to_absolute(char *format, ...);
 
+unsigned char *load_file(int *size, char *format, ...);
+
 char *load_file_as_cstring(char *format, ...);
 
 /*

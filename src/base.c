@@ -7,6 +7,7 @@ void fatal_error(char *format, ...){
 
 	static char msg[4096];
 	vsnprintf(msg,COUNT(msg),format,args);
+	fprintf(stderr,"%s\n",msg);
 	boxerShow(msg,"Error",BoxerStyleError,BoxerButtonsQuit);
 
 	va_end(args);
@@ -62,6 +63,31 @@ char *local_path_to_absolute(char *format, ...){
 	va_end(args);
 
 	return path;
+}
+
+unsigned char *load_file(int *size, char *format, ...){
+	va_list args;
+	va_start(args,format);
+
+	char *path = local_path_to_absolute_internal(format,args);
+	FILE *f = fopen(path,"rb");
+	if (!f){
+		fatal_error("Could not open file: %s",path);
+	}
+	fseek(f,0,SEEK_END);
+	long len = ftell(f);
+	ASSERT(len > 0);
+	fseek(f,0,SEEK_SET);
+	char *buf = malloc(len);
+	ASSERT(buf);
+	fread(buf,1,len,f);
+	fclose(f);
+
+	va_end(args);
+
+	*size = len;
+
+	return buf;
 }
 
 char *load_file_as_cstring(char *format, ...){
