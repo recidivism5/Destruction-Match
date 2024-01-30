@@ -1,13 +1,16 @@
 #pragma once
 
 #include <glad/glad.h>
-#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include <cglm/cglm.h>
+#include <linmath.h>
 #include <stb_image.h>
 #include <stb_truetype.h>
 
 #include <base.h>
+
+typedef struct {
+	int left,top,right,bottom;
+} Rect;
 
 typedef struct {
 	int width, height;
@@ -19,11 +22,6 @@ typedef struct {
 	int width;
 	stbtt_bakedchar *bakedChars;
 } FontAtlas;
-
-typedef struct {
-	GLuint vao, vbo;
-	int vertexCount;
-} GPUMesh;
 
 typedef struct {
 	vec3 position;
@@ -53,7 +51,7 @@ typedef struct {
 
 typedef struct {
 	int vertexCount;
-	GLuint vao, vbo;
+	PhongVertex *vertices;
 	int materialCount;
 	Material *materials;
 	int objectCount;
@@ -85,16 +83,6 @@ void delete_texture(GLuint id);
 
 void gen_font_atlas(FontAtlas *atlas, char *name, int height);
 
-GLuint load_cubemap(char *name);
-
 void load_fractured_model(FracturedModel *model, char *name);
 
 void delete_fractured_model(FracturedModel *model);
-
-void shader_set_mat4(GLuint id, char *name, float *mat, bool transpose);
-
-void shader_set_int(GLuint id, char *name, int val);
-
-void shader_set_float(GLuint id, char *name, float val);
-
-void shader_set_vec3(GLuint id, char *name, vec3 v);

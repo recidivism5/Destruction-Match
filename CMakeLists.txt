@@ -19,8 +19,6 @@ add_subdirectory(third_party/glad)
 
 add_subdirectory(third_party/openal-soft)
 
-add_subdirectory(third_party/cglm)
-
 add_subdirectory(third_party/stb_image)
 
 add_subdirectory(third_party/stb_truetype)
@@ -32,8 +30,6 @@ include_directories(third_party/tinydir)
 add_subdirectory(third_party/whereami)
 
 include_directories(third_party/debugbreak)
-
-add_subdirectory(third_party/fast_obj)
 
 include_directories(include)
 file(GLOB_RECURSE SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
@@ -50,7 +46,7 @@ if(MSVC)
 	)
 endif()
 
-target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL cglm stb_image stb_truetype stb_vorbis whereami fast_obj)
+target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL::OpenAL stb_image stb_truetype stb_vorbis whereami)
 if( MSVC )
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 

@@ -1,52 +1,6 @@
 #include <glutil.h>
-#include <matrix_stack.h>
-#include <aabb.h>
-#include <grid.h>
 
-FontAtlas singleDay;
-
-GLuint phongShader,screenShader,backgroundShader;
-
-Texture beachBackground, checker;
-
-FracturedModel banana;
-
-FracturedModelInstance modelInstances[65536];
-int modelInstanceCount;
-
-void add_model_instance(FracturedModel *model, vec3 position){
-	ASSERT(modelInstanceCount < COUNT(modelInstances));
-	FracturedModelInstance *mi = modelInstances + modelInstanceCount++;
-	mi->model = model;
-	mi->bodyDatas = malloc(model->objectCount * sizeof(*mi->bodyDatas));
-	for (int i = 0; i < model->objectCount; i++){
-		BodyData *bd = mi->bodyDatas + i;
-		glm_vec3_copy(position,bd->position);
-		glm_vec3_zero(bd->velocity);
-		glm_quat_identity(bd->quaternion);
-		glm_vec3_zero(bd->angularVelocity);
-	}
-}
-
-ScreenVertex screenVerts[65536];
-GPUMesh screenMesh;
-void begin_screen_triangles(int scrWidth, int scrHeight, int texWidth, int texHeight){
-	glUseProgram(screenShader);
-	shader_set_int(screenShader,"clientWidth",scrWidth);
-	shader_set_int(screenShader,"clientHeight",scrHeight);
-	shader_set_int(screenShader,"textureWidth",texWidth);
-	shader_set_int(screenShader,"textureHeight",texHeight);
-}
-
-void append_screen_vertex()
-
-void end_screen_triangles(){
-	glUseProgram(screenShader);
-	if (!screenMesh.vao){
-		glGenVertexArrays(1,&screenMesh.vao);
-		glGenBuffers(1,&screenMesh.vbo);
-	}
-}
+Texture beachBackground, checker, frame;
 
 void error_callback(int error, const char* description)
 {
@@ -135,12 +89,8 @@ void main(void){
  
 	ASSERT(glfwInit());
  
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-   	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // fucking apple
-#endif
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	GLFWwindow *window = create_centered_window(1280,720,"Match Mayhem");
  
@@ -152,24 +102,14 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
-	gen_font_atlas(&singleDay,"SingleDay-Regular",32);
+	srand((unsigned int)time(0));
 
-	phongShader = load_shader("phong");
-	screenShader = load_shader("screen");
-	backgroundShader = load_shader("background");
-
+	//Init:
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
+	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 
-	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
-
-	for (int y = 0; y < 8; y++){
-		for (int x = 0; x < 8; x++){
-			add_model_instance(&banana,(vec3){0.5f+(float)x,0.5f+(float)y,-5.0f});
-		}
-	}
-
-	srand((unsigned int)time(0));
+	//Loop:
 
 	double t0 = glfwGetTime();
  
@@ -181,11 +121,10 @@ void main(void){
 		t0 = t1;
 
 		////////////// Render:
-		int width,height;
-		glfwGetFramebufferSize(window, &width, &height);
+		int clientWidth, clientHeight;
+		glfwGetFramebufferSize(window, &clientWidth, &clientHeight);
+		glViewport(0, 0, clientWidth, clientHeight);
 
-		glClearColor(57/255.0f, 130/255.0f, 207/255.0f, 1.0f);
-		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
 		glEnable(GL_DEPTH_TEST);
@@ -193,60 +132,43 @@ void main(void){
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
-		ms_load_identity();
-		ms_persp(0.45f*(float)M_PI,(float)width/(float)height,0.01f,100.0f);
+		glEnable(GL_TEXTURE_2D);
+		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
+
+		glLoadIdentity();
+
+		glBindTexture(GL_TEXTURE_2D,beachBackground.id);
+		glBegin(GL_QUADS);
+		glTexCoord2f(0,0); glVertex3f(-1,-1,0);
+		glTexCoord2f(1,0); glVertex3f(1,-1,0);
+		glTexCoord2f(1,1); glVertex3f(1,1,0);
+		glTexCoord2f(0,1); glVertex3f(-1,1,0);
+		glEnd();
+
+		glOrtho(0,clientWidth,0,clientHeight,-100,100);
 
 		{
-			glDepthFunc(GL_LEQUAL);
-			glUseProgram(backgroundShader);
-			shader_set_int(backgroundShader,"uTex",0);
-			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
-			glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-			glDepthFunc(GL_LESS);
-		}
+			float vpad = clientHeight * 0.2f;
+			float hw = 0.5f * (clientHeight - 2*vpad);
+			float fhw = hw * 1.33f;
+			vec2 center = {clientWidth * 2.0f / 3.0f,vpad + hw};
+			vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
 
-		{
-			glUseProgram(screenShader);
-			GPUMesh 
-		}
+			glBindTexture(GL_TEXTURE_2D,checker.id);
+			glBegin(GL_QUADS);
+			glTexCoord2f(0,0); glVertex3f(center[0]-hw,center[1]-hw,1);
+			glTexCoord2f(4,0); glVertex3f(center[0]+hw,center[1]-hw,1);
+			glTexCoord2f(4,4); glVertex3f(center[0]+hw,center[1]+hw,1);
+			glTexCoord2f(0,4); glVertex3f(center[0]-hw,center[1]+hw,1);
+			glEnd();
 
-		{
-			vec3 cameraPos = {0,0,0};
-			glUseProgram(phongShader);
-			shader_set_int(phongShader,"uTex",0);
-			shader_set_vec3(phongShader,"cameraPos",cameraPos);
-			shader_set_int(phongShader,"numLights",1);
-			shader_set_vec3(phongShader,"lights[0].position",(vec3){3,3,3});
-			shader_set_vec3(phongShader,"lights[0].color",(vec3){1,1,1});
-			for (FracturedModelInstance *mi = modelInstances; mi < modelInstances+modelInstanceCount; mi++){
-				glBindVertexArray(mi->model->vao);
-				FracturedObject *obj = mi->model->objects;
-				mat4 rot;
-				glm_quat_mat4(mi->bodyDatas[0].quaternion,rot);
-				ms_push();
-				vec3 t;
-				glm_vec3_sub(mi->bodyDatas[0].position,cameraPos,t);
-				ms_trans(t);
-				ms_mul(rot);
-				shader_set_mat4(phongShader,"uMVP",ms_get(),false);
-				ms_load_identity();
-				ms_trans(mi->bodyDatas[0].position);
-				ms_mul(rot);
-				shader_set_mat4(phongShader,"uMTW",ms_get(),false);
-				ms_pop();
-				for (int i = 0; i < mi->model->materialCount; i++){
-					Material *mat = mi->model->materials + i;
-					glBindTexture(GL_TEXTURE_2D,mat->textureId);
-					int shininess = 2;
-					float target = 256.0f * (1.0f - mat->roughness);
-					while ((float)shininess < target && shininess < 256){
-						shininess *= 2;
-					}
-					shader_set_float(phongShader,"shininess",(float)shininess);
-					VertexOffsetCount *vic = mi->model->objects[0].vertexOffsetCounts+i;
-					glDrawArrays(GL_TRIANGLES,vic->offset,vic->count);
-				}
-			}
+			glBindTexture(GL_TEXTURE_2D,frame.id);
+			glBegin(GL_QUADS);
+			glTexCoord2f(0,0); glVertex3f(fcenter[0]-fhw,fcenter[1]-fhw,2);
+			glTexCoord2f(1,0); glVertex3f(fcenter[0]+fhw,fcenter[1]-fhw,2);
+			glTexCoord2f(1,1); glVertex3f(fcenter[0]+fhw,fcenter[1]+fhw,2);
+			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
+			glEnd();
 		}
 
 		glCheckError();
