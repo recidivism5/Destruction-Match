@@ -23,9 +23,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					const GLFWvidmode *vm = glfwGetVideoMode(primary);
 					if (!fullscreen){
 						glfwGetFramebufferSize(window,&prev_width,&prev_height);
-						glfwSetWindowMonitor(window,primary,0,0,vm->width,vm->height,GLFW_DONT_CARE);
+						glfwSetWindowAttrib(window,GLFW_FLOATING,true);
+						glfwSetWindowAttrib(window,GLFW_DECORATED,false);
+						glfwSetWindowMonitor(window,0,0,0,vm->width,vm->height,GLFW_DONT_CARE);
 						fullscreen = true;
 					} else {
+						glfwSetWindowAttrib(window,GLFW_FLOATING,false);
+						glfwSetWindowAttrib(window,GLFW_DECORATED,true);
 						glfwSetWindowMonitor(window,0,(vm->width-prev_width)/2,(vm->height-prev_height)/2,prev_width,prev_height,GLFW_DONT_CARE);
 						fullscreen = false;
 					}
@@ -126,6 +130,9 @@ void main(void){
 		////////////// Render:
 		int clientWidth, clientHeight;
 		glfwGetFramebufferSize(window, &clientWidth, &clientHeight);
+		if (!clientWidth || !clientHeight){
+			goto POLL;
+		}
 		glViewport(0, 0, clientWidth, clientHeight);
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
@@ -138,16 +145,23 @@ void main(void){
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 
+		float vpad = clientHeight * 0.15f;
+		float hw = 0.5f * (clientHeight - 2*vpad);
+		float fhw = hw * 1.33f;
+		float cellWidth = hw/4;
+		vec2 center = {clientWidth * 2.0f / 3.0f,vpad + hw};
+		Rect board = {
+			.left = center[0]-hw,
+			.right = center[0]+hw,
+			.bottom = center[1]-hw,
+			.top = center[1]+hw
+		};
+		vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
+
 		{
 			glLoadIdentity();
 
 			project_ortho(0,clientWidth,0,clientHeight,-100,1);
-
-			float vpad = clientHeight * 0.2f;
-			float hw = 0.5f * (clientHeight - 2*vpad);
-			float fhw = hw * 1.33f;
-			vec2 center = {clientWidth * 2.0f / 3.0f,vpad + hw};
-			vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
@@ -159,10 +173,10 @@ void main(void){
 
 			glBindTexture(GL_TEXTURE_2D,checker.id);
 			glBegin(GL_QUADS);
-			glTexCoord2f(0,0); glVertex3f(center[0]-hw,center[1]-hw,1);
-			glTexCoord2f(4,0); glVertex3f(center[0]+hw,center[1]-hw,1);
-			glTexCoord2f(4,4); glVertex3f(center[0]+hw,center[1]+hw,1);
-			glTexCoord2f(0,4); glVertex3f(center[0]-hw,center[1]+hw,1);
+			glTexCoord2f(0,0); glVertex3f(board.left,board.bottom,1);
+			glTexCoord2f(4,0); glVertex3f(board.right,board.bottom,1);
+			glTexCoord2f(4,4); glVertex3f(board.right,board.top,1);
+			glTexCoord2f(0,4); glVertex3f(board.left,board.top,1);
 			glEnd();
 
 			glBindTexture(GL_TEXTURE_2D,frame.id);
@@ -177,19 +191,20 @@ void main(void){
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		{
-			project_perspective(90.0,(double)clientWidth/(double)clientHeight,0.01,1000.0);
+			static vec3 rot = {0,0,0};
+			float sdt = 100*dt;
+			rot[0] += sdt;
+			rot[1] += 2*sdt;
 
+			project_perspective(90.0,(double)clientWidth/(double)clientHeight,0.01,1000.0);
+			
 			glLoadIdentity();
-			glTranslatef(0,0,-1);
+			glTranslatef(0,0,-5);
+			glRotatef(rot[0],1,0,0);
+			glRotatef(rot[1],0,1,0);
+			glRotatef(rot[2],0,0,1);
 
 			glBindTexture(GL_TEXTURE_2D,banana.materials[0].textureId);
-			
-			/*glBegin(GL_QUADS);
-			glTexCoord2f(0,0); glVertex3f(-5,-5,0);
-			glTexCoord2f(1,0); glVertex3f(5,-5,0);
-			glTexCoord2f(1,1); glVertex3f(5,5,0);
-			glTexCoord2f(0,1); glVertex3f(-5,5,0);
-			glEnd();*/
 
 			glEnableClientState(GL_VERTEX_ARRAY);
 			glEnableClientState(GL_NORMAL_ARRAY);
@@ -206,6 +221,8 @@ void main(void){
 		glCheckError();
  
 		glfwSwapBuffers(window);
+
+		POLL:
 		glfwPollEvents();
 	}
  
