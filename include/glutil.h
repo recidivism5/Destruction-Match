@@ -27,7 +27,7 @@ typedef struct {
 	vec3 position;
 	vec3 normal;
 	vec2 texcoord;
-} PhongVertex;
+} ModelVertex;
 
 typedef struct {
 	vec3 position;
@@ -51,7 +51,7 @@ typedef struct {
 
 typedef struct {
 	int vertexCount;
-	PhongVertex *vertices;
+	ModelVertex *vertices;
 	int materialCount;
 	Material *materials;
 	int objectCount;
@@ -86,3 +86,9 @@ void gen_font_atlas(FontAtlas *atlas, char *name, int height);
 void load_fractured_model(FracturedModel *model, char *name);
 
 void delete_fractured_model(FracturedModel *model);
+
+void project_identity();
+
+void project_ortho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar);
+
+void project_perspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);

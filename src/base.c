@@ -134,7 +134,7 @@ int rand_int_range(int min, int max){
 	return rand_int(max-min+1) + min;
 }
 
-uint32_t fnv_1a(int keylen, char *key){
+uint32_t fnv_1a(char *key, int keylen){
 	uint32_t index = 2166136261u;
 	for (int i = 0; i < keylen; i++){
 		index ^= key[i];

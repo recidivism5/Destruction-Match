@@ -2,8 +2,9 @@
 
 Texture beachBackground, checker, frame;
 
-void error_callback(int error, const char* description)
-{
+FracturedModel banana;
+
+void error_callback(int error, const char* description){
 	fprintf(stderr, "Error: %s\n", description);
 }
 
@@ -109,6 +110,8 @@ void main(void){
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 
+	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
+
 	//Loop:
 
 	double t0 = glfwGetTime();
@@ -135,24 +138,24 @@ void main(void){
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 
-		glLoadIdentity();
-
-		glBindTexture(GL_TEXTURE_2D,beachBackground.id);
-		glBegin(GL_QUADS);
-		glTexCoord2f(0,0); glVertex3f(-1,-1,0);
-		glTexCoord2f(1,0); glVertex3f(1,-1,0);
-		glTexCoord2f(1,1); glVertex3f(1,1,0);
-		glTexCoord2f(0,1); glVertex3f(-1,1,0);
-		glEnd();
-
-		glOrtho(0,clientWidth,0,clientHeight,-100,100);
-
 		{
+			glLoadIdentity();
+
+			project_ortho(0,clientWidth,0,clientHeight,-100,1);
+
 			float vpad = clientHeight * 0.2f;
 			float hw = 0.5f * (clientHeight - 2*vpad);
 			float fhw = hw * 1.33f;
 			vec2 center = {clientWidth * 2.0f / 3.0f,vpad + hw};
 			vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
+
+			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
+			glBegin(GL_QUADS);
+			glTexCoord2f(0,0); glVertex3f(0,0,0);
+			glTexCoord2f(1,0); glVertex3f((float)clientWidth,0,0);
+			glTexCoord2f(1,1); glVertex3f((float)clientWidth,(float)clientHeight,0);
+			glTexCoord2f(0,1); glVertex3f(0,(float)clientHeight,0);
+			glEnd();
 
 			glBindTexture(GL_TEXTURE_2D,checker.id);
 			glBegin(GL_QUADS);
@@ -169,6 +172,35 @@ void main(void){
 			glTexCoord2f(1,1); glVertex3f(fcenter[0]+fhw,fcenter[1]+fhw,2);
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
+		}
+
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		{
+			project_perspective(90.0,(double)clientWidth/(double)clientHeight,0.01,1000.0);
+
+			glLoadIdentity();
+			glTranslatef(0,0,-1);
+
+			glBindTexture(GL_TEXTURE_2D,banana.materials[0].textureId);
+			
+			/*glBegin(GL_QUADS);
+			glTexCoord2f(0,0); glVertex3f(-5,-5,0);
+			glTexCoord2f(1,0); glVertex3f(5,-5,0);
+			glTexCoord2f(1,1); glVertex3f(5,5,0);
+			glTexCoord2f(0,1); glVertex3f(-5,5,0);
+			glEnd();*/
+
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glEnableClientState(GL_NORMAL_ARRAY);
+			glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+			glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->position);
+			glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->normal);
+			glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->texcoord);
+			glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+			glDisableClientState(GL_VERTEX_ARRAY);
+			glDisableClientState(GL_NORMAL_ARRAY);
+			glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 		}
 
 		glCheckError();

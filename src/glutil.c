@@ -145,3 +145,28 @@ void delete_fractured_model(FracturedModel *model){
 	free(model->objects);
 	memset(model,0,sizeof(*model));
 }
+
+void project_identity(){
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void project_ortho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar){
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(left,right,bottom,top,zNear,zFar);
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void project_perspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar){
+	GLdouble top, bottom, left, right;
+	top = zNear * tan((M_PI/180.0)*fovy/2);
+	bottom = -top;
+	right = aspect*top;
+	left = -right;
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glFrustum(left, right, bottom, top, zNear, zFar);
+	glMatrixMode(GL_MODELVIEW);
+}
