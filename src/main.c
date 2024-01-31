@@ -97,7 +97,7 @@ void main(void){
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	GLFWwindow *window = create_centered_window(1280,720,"Match Mayhem");
+	GLFWwindow *window = create_centered_window(1280,960,"Match Mayhem");
  
 	glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -133,7 +133,15 @@ void main(void){
 		if (!clientWidth || !clientHeight){
 			goto POLL;
 		}
-		glViewport(0, 0, clientWidth, clientHeight);
+		float width, height;
+		height = (float)clientWidth * 9.0f / 16.0f;
+		if (height > (float)clientHeight){
+			width = (float)clientHeight * 16.0f / 9.0f;
+			glViewport((int)(0.5f * (clientWidth - width)), 0, (int)width, (int)height);
+		} else {
+			width = (float)clientWidth;
+			glViewport(0, (int)(0.5f*(clientHeight - height)), (int)width, (int)height);
+		}
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -145,12 +153,12 @@ void main(void){
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
 
-		float vpad = clientHeight * 0.15f;
-		float hw = 0.5f * (clientHeight - 2*vpad);
+		float vpad = 1080 * 0.15f;
+		float hw = 0.5f * (1080 - 2*vpad);
 		float fhw = hw * 1.33f;
 		float cellWidth = hw/4;
-		vec2 center = {clientWidth * 2.0f / 3.0f,vpad + hw};
-		Rect board = {
+		vec2 center = {1920 * 2.0f / 3.0f,vpad + hw};
+		FRect board = {
 			.left = center[0]-hw,
 			.right = center[0]+hw,
 			.bottom = center[1]-hw,
@@ -161,14 +169,14 @@ void main(void){
 		{
 			glLoadIdentity();
 
-			project_ortho(0,clientWidth,0,clientHeight,-100,1);
+			project_ortho(0,1920,0,1080,-100,1);
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
 			glTexCoord2f(0,0); glVertex3f(0,0,0);
-			glTexCoord2f(1,0); glVertex3f((float)clientWidth,0,0);
-			glTexCoord2f(1,1); glVertex3f((float)clientWidth,(float)clientHeight,0);
-			glTexCoord2f(0,1); glVertex3f(0,(float)clientHeight,0);
+			glTexCoord2f(1,0); glVertex3f(1920,0,0);
+			glTexCoord2f(1,1); glVertex3f(1920,1080,0);
+			glTexCoord2f(0,1); glVertex3f(0,1080,0);
 			glEnd();
 
 			glBindTexture(GL_TEXTURE_2D,checker.id);
@@ -196,7 +204,7 @@ void main(void){
 			rot[0] += sdt;
 			rot[1] += 2*sdt;
 
-			project_perspective(90.0,(double)clientWidth/(double)clientHeight,0.01,1000.0);
+			project_perspective(50.0,(double)1920/(double)1080,0.01,1000.0);
 			
 			glLoadIdentity();
 			glTranslatef(0,0,-5);

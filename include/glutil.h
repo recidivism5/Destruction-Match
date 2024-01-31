@@ -9,8 +9,8 @@
 #include <base.h>
 
 typedef struct {
-	int left,top,right,bottom;
-} Rect;
+	float left,top,right,bottom;
+} FRect;
 
 typedef struct {
 	int width, height;

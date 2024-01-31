@@ -23,3 +23,14 @@
 - Endless mode (Random backgrounds and objects)
 - Unlock themes and backgrounds for endless mode
 - Unlock custom cursors
+
+### Campaigns:
+- Juice Bar
+- Beach
+- Office
+- Grocery Store
+- Burger Joint
+- Toybox (colored dice, all sorts of things)
+- Bathroom
+- Garage
+- Garden
