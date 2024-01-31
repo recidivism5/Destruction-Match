@@ -1,9 +1,166 @@
 #include <glutil.h>
 #include <perlin_noise.h>
 
+typedef struct {
+	vec3 position;
+	vec3 normal;
+	vec2 texcoord;
+} ModelVertex;
+
+typedef struct {
+	GLuint textureId;
+	float roughness;
+} Material;
+
+typedef struct {
+	int offset, count;
+} VertexOffsetCount;
+
+typedef struct {
+	vec3 position;
+	VertexOffsetCount *vertexOffsetCounts;
+} FracturedObject;
+
+typedef struct {
+	int vertexCount;
+	ModelVertex *vertices;
+	vec3 *expandedPositions;
+	int materialCount;
+	Material *materials;
+	int objectCount;
+	FracturedObject *objects;
+} FracturedModel;
+
+typedef struct {
+	FracturedModel *model;
+	int column;
+	vec2 position;
+	float yVelocity;
+	float rotationRandom;
+	bool locked;
+} FracturedModelInstance;
+
+void load_fractured_model(FracturedModel *model, char *name){
+	char *path = local_path_to_absolute("res/%s.fmf",name);
+	FILE *f = fopen(path,"rb");
+	if (!f){
+		fatal_error("Failed to open model: %s",path);
+	}
+	
+	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
+	ASSERT(model->vertexCount < 65536);
+	model->vertices = malloc(model->vertexCount * sizeof(*model->vertices));
+	ASSERT(model->vertices);
+	model->expandedPositions = malloc(model->vertexCount * sizeof(*model->expandedPositions));
+	ASSERT(model->expandedPositions);
+	ASSERT(1==fread(model->vertices,model->vertexCount * sizeof(*model->vertices),1,f));
+	for (int i = 0; i < model->vertexCount; i++){
+		vec3 *ev = model->expandedPositions+i;
+		ModelVertex *v = model->vertices+i;
+		vec3_copy(v->position,(float *)ev);
+		vec3 snorm;
+		vec3_scale(v->normal,0.025f,snorm);
+		vec3_add((float *)ev,snorm,(float *)ev);
+	}
+	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
+	ASSERT(0 < model->materialCount && model->materialCount < 256);
+	model->materials = malloc(model->materialCount * sizeof(*model->materials));
+	ASSERT(model->materials);
+	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
+		m->roughness = 0.0f;//bruh
+
+		int compressedSize;
+		ASSERT(1==fread(&compressedSize,sizeof(compressedSize),1,f));
+		ASSERT(0 < compressedSize && compressedSize < 524288);
+		unsigned char *compressedData = malloc(compressedSize);
+		ASSERT(1==fread(compressedData,compressedSize,1,f));
+		int width,height,comp;
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char *pixels = stbi_load_from_memory(compressedData,compressedSize,&width,&height,&comp,4);
+		m->textureId = new_texture(pixels,width,height,false);
+		free(compressedData);
+		free(pixels);
+	}
+	ASSERT(1==fread(&model->objectCount,sizeof(model->objectCount),1,f));
+	ASSERT(model->objectCount > 0 && model->objectCount < 256);
+	model->objects = malloc(model->objectCount * sizeof(*model->objects));
+	ASSERT(model->objects);
+	int vertexOffset = 0;
+	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
+		ASSERT(1==fread(obj->position,sizeof(obj->position),1,f));
+		obj->vertexOffsetCounts = malloc(model->materialCount * sizeof(*obj->vertexOffsetCounts));
+		for (VertexOffsetCount *vic = obj->vertexOffsetCounts; vic < obj->vertexOffsetCounts + model->materialCount; vic++){
+			vic->offset = vertexOffset;
+			ASSERT(1==fread(&vic->count,sizeof(vic->count),1,f));
+			ASSERT(vic->count <= model->vertexCount-vertexOffset);
+			vertexOffset += vic->count;
+		}
+	}
+	
+	fclose(f);
+}
+
+void delete_fractured_model(FracturedModel *model){
+	ASSERT(model->vertices);
+	free(model->vertices);
+	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
+		delete_texture(m->textureId);
+	}
+	ASSERT(model->materials);
+	free(model->materials);
+	ASSERT(model->objects);
+	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
+		ASSERT(obj->vertexOffsetCounts);
+		free(obj->vertexOffsetCounts);
+	}
+	free(model->objects);
+	memset(model,0,sizeof(*model));
+}
+
+FSRect screen;
+void sub_viewport(float x, float y, float width, float height){
+	glViewport(
+		(int)(screen.x + screen.width * x / 16.0f),
+		(int)(screen.y + screen.height * y / 9.0f),
+		(int)(screen.width * width / 16.0f),
+		(int)(screen.height * height / 9.0f)
+	);
+}
+vec2 mouse;
+bool mouse_in_rect(FSRect *r){
+	return mouse[0] > r->x && mouse[0] < (r->x+r->width) && mouse[1] > r->y && mouse[1] < (r->y+r->height);
+}
+
+FRect boardRect;
+float cellWidth;
+FracturedModelInstance objects[256];
+FracturedModelInstance *board[8*8];
+
+void insert_object(int column, FracturedModel *model){
+	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
+		if (!fmi->model){
+			fmi->model = model;
+			fmi->column = column;
+			fmi->position[0] = boardRect.left + cellWidth * column;
+			fmi->position[1] = boardRect.top + 4*cellWidth;
+			fmi->yVelocity = 0.0f;
+			fmi->rotationRandom = (float)rand_int(400);
+			return;
+		}
+	}
+	ASSERT(0 && "insert object overflow");
+}
+
 Texture beachBackground, checker, frame;
 
 FracturedModel banana;
+
+GLFWwindow *gwindow;
+
+void cleanup(void){
+	glfwDestroyWindow(gwindow);
+	glfwTerminate();
+}
 
 void error_callback(int error, const char* description){
 	fprintf(stderr, "Error: %s\n", description);
@@ -50,6 +207,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
 	switch (action){
 		case GLFW_PRESS:{
+			insert_object(0,&banana);
 			switch (button){
 			}
 			break;
@@ -79,35 +237,22 @@ GLFWwindow *create_centered_window(int width, int height, char *title){
 	return window;
 }
 
-FSRect screen;
-void sub_viewport(float x, float y, float width, float height){
-	glViewport(
-		(int)(screen.x + screen.width * x / 16.0f),
-		(int)(screen.y + screen.height * y / 9.0f),
-		(int)(screen.width * width / 16.0f),
-		(int)(screen.height * height / 9.0f)
-	);
-}
-vec2 mouse;
-bool mouse_in_rect(FSRect *r){
-	return mouse[0] > r->x && mouse[0] < (r->x+r->width) && mouse[1] > r->y && mouse[1] < (r->y+r->height);
-}
-
 void main(void){
 	glfwSetErrorCallback(error_callback);
+	set_error_callback(cleanup);
  
 	ASSERT(glfwInit());
  
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	GLFWwindow *window = create_centered_window(1280,960,"Match Mayhem");
+	gwindow = create_centered_window(1280,960,"Match Mayhem");
  
-	glfwSetCursorPosCallback(window, cursor_position_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetKeyCallback(window, key_callback);
+	glfwSetCursorPosCallback(gwindow, cursor_position_callback);
+	glfwSetMouseButtonCallback(gwindow, mouse_button_callback);
+	glfwSetKeyCallback(gwindow, key_callback);
  
-	glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(gwindow);
 	gladLoadGL();
 	glfwSwapInterval(1);
 
@@ -120,20 +265,53 @@ void main(void){
 
 	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
 
+	float vpad = 9 * 0.15f;
+	float hw = 0.5f * (9 - 2*vpad);
+	float fhw = hw * 1.33f;
+	cellWidth = hw/4;
+	vec2 center = {16 * 2.0f / 3.0f,vpad + hw};
+	boardRect.left = center[0]-hw;
+	boardRect.right = center[0]+hw;
+	boardRect.bottom = center[1]-hw;
+	boardRect.top = center[1]+hw;
+	vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
+
 	//Loop:
 
 	double t0 = glfwGetTime();
  
-	while (!glfwWindowShouldClose(window))
+	while (!glfwWindowShouldClose(gwindow))
 	{
 		/////////// Update:
 		double t1 = glfwGetTime();
-		double dt = t1 - t0;
+		float dt = (float)(t1 - t0);
 		t0 = t1;
+
+		for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
+			if (mi->model && !mi->locked){
+				mi->yVelocity -= 9.8f * dt;
+				mi->position[1] += mi->yVelocity * dt;
+				int highest = -1;
+				for (int y = 7; y >= 0; y--){
+					if (board[y*8+mi->column]){
+						highest = y;
+						break;
+					}
+				}
+				ASSERT(highest < 7);
+				float fhighest = boardRect.bottom+(highest+1)*cellWidth;
+				if (mi->position[1] < fhighest){
+					mi->position[1] = fhighest;
+					mi->yVelocity = 0.0f;
+					mi->locked = true;
+					board[(highest+1)*8+mi->column] = mi;
+				}
+			}
+		}
 
 		////////////// Render:
 		int clientWidth, clientHeight;
-		glfwGetFramebufferSize(window, &clientWidth, &clientHeight);
+		glfwGetFramebufferSize(gwindow, &clientWidth, &clientHeight);
 		if (!clientWidth || !clientHeight){
 			goto POLL;
 		}
@@ -152,8 +330,7 @@ void main(void){
 
 		{
 			double mx,my;
-			glfwGetCursorPos(window,&mx,&my);
-			printf("%f %f\n",mx,my);
+			glfwGetCursorPos(gwindow,&mx,&my);
 			mouse[0] = 16 * ((float)mx - screen.x) / (screen.width-1);
 			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
 		}
@@ -170,19 +347,6 @@ void main(void){
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 
-		float vpad = 9 * 0.15f;
-		float hw = 0.5f * (9 - 2*vpad);
-		float fhw = hw * 1.33f;
-		float cellWidth = hw/4;
-		vec2 center = {16 * 2.0f / 3.0f,vpad + hw};
-		FRect board = {
-			.left = center[0]-hw,
-			.right = center[0]+hw,
-			.bottom = center[1]-hw,
-			.top = center[1]+hw
-		};
-		vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
-
 		{
 			glLoadIdentity();
 
@@ -198,10 +362,10 @@ void main(void){
 
 			glBindTexture(GL_TEXTURE_2D,checker.id);
 			glBegin(GL_QUADS);
-			glTexCoord2f(0,0); glVertex3f(board.left,board.bottom,1);
-			glTexCoord2f(4,0); glVertex3f(board.right,board.bottom,1);
-			glTexCoord2f(4,4); glVertex3f(board.right,board.top,1);
-			glTexCoord2f(0,4); glVertex3f(board.left,board.top,1);
+			glTexCoord2f(0,0); glVertex3f(boardRect.left,boardRect.bottom,1);
+			glTexCoord2f(4,0); glVertex3f(boardRect.right,boardRect.bottom,1);
+			glTexCoord2f(4,4); glVertex3f(boardRect.right,boardRect.top,1);
+			glTexCoord2f(0,4); glVertex3f(boardRect.left,boardRect.top,1);
 			glEnd();
 
 			glBindTexture(GL_TEXTURE_2D,frame.id);
@@ -233,11 +397,11 @@ void main(void){
 			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 			glEnable(GL_LIGHT0);
 
-			for (int y = 0; y < 8; y++){
-				for (int x = 0; x < 8; x++){
+			for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
+				if (mi->model){
 					FSRect rect = {
-						board.left+x*cellWidth,
-						board.bottom+y*cellWidth,
+						mi->position[0],
+						mi->position[1],
 						cellWidth,
 						cellWidth
 					};
@@ -250,9 +414,9 @@ void main(void){
 
 					glLoadIdentity();
 					glTranslated(0,0,-2.6);
-					glRotated(t0*120+140*x-70*y,0,1,0);
+					glRotated(t0*120+mi->rotationRandom,0,1,0);
 
-					glBindTexture(GL_TEXTURE_2D,banana.materials[0].textureId);
+					glBindTexture(GL_TEXTURE_2D,mi->model->materials[0].textureId);
 
 					glEnableClientState(GL_VERTEX_ARRAY);
 					glEnableClientState(GL_NORMAL_ARRAY);
@@ -262,12 +426,12 @@ void main(void){
 					glStencilFunc(GL_ALWAYS,1,0xff);
 					glStencilMask(0xff);
 					glEnable(GL_LIGHTING);
-					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->position);
-					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->normal);
-					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->texcoord);
-					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->position);
+					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->normal);
+					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->texcoord);
+					glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[0].offset,mi->model->objects[0].vertexOffsetCounts[0].count);
 					glStencilFunc(GL_NOTEQUAL,1,0xff);
-					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)banana.expandedPositions);
+					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 					glDisable(GL_TEXTURE_2D);
 					glDisable(GL_LIGHTING);
 					if (mouse_in_rect(&rect)){
@@ -275,7 +439,7 @@ void main(void){
 					} else {
 						glColor4f(0,0,0,1);
 					}
-					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+					glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[0].offset,mi->model->objects[0].vertexOffsetCounts[0].count);
 					glEnable(GL_TEXTURE_2D);
 					glColor4f(1,1,1,1);
 					glDisable(GL_STENCIL_TEST);
@@ -290,13 +454,11 @@ void main(void){
 
 		glCheckError();
  
-		glfwSwapBuffers(window);
+		glfwSwapBuffers(gwindow);
 
 		POLL:
 		glfwPollEvents();
 	}
  
-	glfwDestroyWindow(window);
- 
-	glfwTerminate();
+	cleanup();
 }

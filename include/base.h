@@ -43,6 +43,8 @@
 	} while (0)
 #endif
 
+void set_error_callback(void (*func)(void));
+
 void fatal_error(char *format, ...);
 
 char *format_string(char *format, ...);

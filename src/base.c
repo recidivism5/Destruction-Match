@@ -1,7 +1,14 @@
 #include <base.h>
 #include <whereami.h>
 
+static void (*error_callback)(void);
+void set_error_callback(void (*func)(void)){
+	error_callback = func;
+}
+
 void fatal_error(char *format, ...){
+	error_callback();
+	
 	va_list args;
 	va_start(args,format);
 
