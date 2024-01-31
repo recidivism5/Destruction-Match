@@ -79,6 +79,16 @@ GLFWwindow *create_centered_window(int width, int height, char *title){
 	return window;
 }
 
+FSRect screen;
+void sub_viewport(float x, float y, float width, float height){
+	glViewport(
+		(int)(screen.x + screen.width * x / 16.0f),
+		(int)(screen.y + screen.height * y / 9.0f),
+		(int)(screen.width * width / 16.0f),
+		(int)(screen.height * height / 9.0f)
+	);
+}
+
 void main(void){
 	glfwSetErrorCallback(error_callback);
  
@@ -123,15 +133,17 @@ void main(void){
 		if (!clientWidth || !clientHeight){
 			goto POLL;
 		}
-		float width, height;
-		height = (float)clientWidth * 9.0f / 16.0f;
-		if (height > (float)clientHeight){
-			width = (float)clientHeight * 16.0f / 9.0f;
-			glViewport((int)(0.5f * (clientWidth - width)), 0, (int)width, (int)height);
+		screen.height = (float)clientWidth * 9.0f / 16.0f;
+		if (screen.height > (float)clientHeight){
+			screen.width = (float)clientHeight * 16.0f / 9.0f;
+			screen.x = 0.5f * (clientWidth - screen.width);
+			screen.y = 0;
 		} else {
-			width = (float)clientWidth;
-			glViewport(0, (int)(0.5f*(clientHeight - height)), (int)width, (int)height);
+			screen.width = (float)clientWidth;
+			screen.x = 0;
+			screen.y = 0.5f*(clientHeight - screen.height);
 		}
+		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -145,11 +157,11 @@ void main(void){
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 
-		float vpad = 1080 * 0.15f;
-		float hw = 0.5f * (1080 - 2*vpad);
+		float vpad = 9 * 0.15f;
+		float hw = 0.5f * (9 - 2*vpad);
 		float fhw = hw * 1.33f;
 		float cellWidth = hw/4;
-		vec2 center = {1920 * 2.0f / 3.0f,vpad + hw};
+		vec2 center = {16 * 2.0f / 3.0f,vpad + hw};
 		FRect board = {
 			.left = center[0]-hw,
 			.right = center[0]+hw,
@@ -161,14 +173,14 @@ void main(void){
 		{
 			glLoadIdentity();
 
-			project_ortho(0,1920,0,1080,-100,1);
+			project_ortho(0,16,0,9,-100,1);
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
 			glTexCoord2f(0,0); glVertex3f(0,0,0);
-			glTexCoord2f(1,0); glVertex3f(1920,0,0);
-			glTexCoord2f(1,1); glVertex3f(1920,1080,0);
-			glTexCoord2f(0,1); glVertex3f(0,1080,0);
+			glTexCoord2f(1,0); glVertex3f(16,0,0);
+			glTexCoord2f(1,1); glVertex3f(16,9,0);
+			glTexCoord2f(0,1); glVertex3f(0,9,0);
 			glEnd();
 
 			glBindTexture(GL_TEXTURE_2D,checker.id);
@@ -212,7 +224,12 @@ void main(void){
 
 			for (int y = 0; y < 8; y++){
 				for (int x = 0; x < 8; x++){
-					glViewport(board.left+x*cellWidth,board.bottom+y*cellWidth,cellWidth,cellWidth);
+					sub_viewport(
+						board.left+x*cellWidth,
+						board.bottom+y*cellWidth,
+						cellWidth,
+						cellWidth
+					);
 
 					glLoadIdentity();
 					glTranslated(0,0,-2.6);

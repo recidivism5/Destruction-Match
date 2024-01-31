@@ -13,6 +13,10 @@ typedef struct {
 } FRect;
 
 typedef struct {
+	float x,y,width,height;
+} FSRect;
+
+typedef struct {
 	int width, height;
 	GLuint id;
 } Texture;
