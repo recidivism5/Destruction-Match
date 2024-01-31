@@ -218,8 +218,6 @@ void main(void){
 			glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
 			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
 			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-			glEnable(GL_LIGHTING);
 			glEnable(GL_LIGHT0);
 
 			for (int y = 0; y < 8; y++){
@@ -240,10 +238,24 @@ void main(void){
 					glEnableClientState(GL_VERTEX_ARRAY);
 					glEnableClientState(GL_NORMAL_ARRAY);
 					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+					glEnable(GL_STENCIL_TEST);
+					glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
+					glStencilFunc(GL_ALWAYS,1,0xff);
+					glStencilMask(0xff);
+					glEnable(GL_LIGHTING);
 					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->position);
 					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->normal);
 					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->texcoord);
 					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+					glStencilFunc(GL_NOTEQUAL,1,0xff);
+					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)banana.expandedPositions);
+					glDisable(GL_TEXTURE_2D);
+					glDisable(GL_LIGHTING);
+					glColor4f(0,0,0,1);
+					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+					glEnable(GL_TEXTURE_2D);
+					glColor4f(1,1,1,1);
+					glDisable(GL_STENCIL_TEST);
 					glDisableClientState(GL_VERTEX_ARRAY);
 					glDisableClientState(GL_NORMAL_ARRAY);
 					glDisableClientState(GL_TEXTURE_COORD_ARRAY);

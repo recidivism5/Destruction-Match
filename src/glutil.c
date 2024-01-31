@@ -96,10 +96,10 @@ void load_fractured_model(FracturedModel *model, char *name){
 	for (int i = 0; i < model->vertexCount; i++){
 		vec3 *ev = model->expandedPositions+i;
 		ModelVertex *v = model->vertices+i;
-		vec3_copy(v->position,ev);
+		vec3_copy(v->position,(float *)ev);
 		vec3 snorm;
-		vec3_scale(v->normal,1.05f,snorm);
-		vec3_add(ev,snorm,ev);
+		vec3_scale(v->normal,0.025f,snorm);
+		vec3_add((float *)ev,snorm,(float *)ev);
 	}
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
