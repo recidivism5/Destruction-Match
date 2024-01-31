@@ -13,9 +13,11 @@ typedef float vec2[2];
 typedef float vec3[3];
 typedef float vec4[4];
 
+typedef double dvec3[3];
+
 typedef vec4 mat4[4];
 
-void vec3_copy(vec3 dst, vec3 src);
+void vec3_copy(vec3 src, vec3 dst);
 void vec3_add(vec3 a, vec3 b, vec3 dst);
 void vec3_sub(vec3 a, vec3 b, vec3 dst);
 void vec3_negate(vec3 v, vec3 dst);
@@ -63,3 +65,5 @@ void mat4_ortho_rh_no(mat4 m, float left, float right, float bottom, float top, 
 void mat4_ortho_lh_zo(mat4 m, float left, float right, float bottom, float top, float nearZ, float farZ);
 void mat4_persp_rh_no(mat4 m, float fovy, float aspect, float nearZ, float farZ);
 void mat4_persp_lh_zo(mat4 m, float fovy, float aspect, float nearZ, float farZ);
+
+void vec3_rotate_deg(vec3 in, vec3 axis, float angle, vec3 out);

@@ -52,6 +52,7 @@ typedef struct {
 typedef struct {
 	int vertexCount;
 	ModelVertex *vertices;
+	vec3 *expandedPositions;
 	int materialCount;
 	Material *materials;
 	int objectCount;

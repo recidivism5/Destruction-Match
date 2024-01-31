@@ -5,8 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
-void vec3_copy(vec3 dst, vec3 src){
-	memcpy(dst,src,sizeof(dst));
+void vec3_copy(vec3 src, vec3 dst){
+	memcpy(dst,src,sizeof(vec3));
 }
 
 void vec3_add(vec3 a, vec3 b, vec3 dst){
@@ -96,7 +96,7 @@ void euler_wrap(vec3 e, vec3 dst){
 }
 
 void vec4_copy(vec4 dst, vec4 src){
-	memcpy(dst,src,sizeof(dst));
+	memcpy(dst,src,sizeof(vec4));
 }
 
 void vec4_add(vec4 a, vec4 b, vec4 dst){
@@ -219,7 +219,7 @@ void quat_to_mat4(vec4 q, mat4 dst){
 }
 
 void mat4_copy(mat4 dst, mat4 src){
-	memcpy(dst,src,sizeof(dst));
+	memcpy(dst,src,sizeof(mat4));
 }
 
 void mat4_mul(mat4 a, mat4 b, mat4 dst){
@@ -509,4 +509,14 @@ void mat4_persp_lh_zo(mat4 m, float fovy, float aspect, float nearZ, float farZ)
 	m[1][0] = m[1][2] = m[1][3] =
 	m[2][0] = m[2][1] =
 	m[3][0] = m[3][1] = m[3][3] = 0;
+}
+
+void vec3_rotate_deg(vec3 in, vec3 axis, float angle, vec3 out){
+	mat4 m;
+	mat4_rotate(m,axis,angle*(float)M_PI/180.0f);
+	vec4 v;
+	vec3_copy(in,v);
+	v[3] = 0.0f;
+	mat4_mul_vec4(m,v,v);
+	vec3_copy(v,out);
 }

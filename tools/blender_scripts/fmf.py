@@ -97,7 +97,8 @@ class ObjectExport(bpy.types.Operator):
                             n = obj.data.vertices[pi].normal
                             uv = uv_layer[uvi].uv
                             f.write(struct.pack("<3f", v.y, v.z, v.x)) #position
-                            f.write(struct.pack("<3f", normal[0],normal[1],normal[2])) #normal
+                            f.write(struct.pack("<3f", n.y, n.z, n.x)) #normal
+                            #f.write(struct.pack("<3f", normal[0], normal[1], normal[2])) #normal
                             f.write(struct.pack("<2f", uv.x, uv.y)) #uv
             
             obj = bpy.data.objects[0]

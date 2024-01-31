@@ -90,7 +90,17 @@ void load_fractured_model(FracturedModel *model, char *name){
 	ASSERT(model->vertexCount < 65536);
 	model->vertices = malloc(model->vertexCount * sizeof(*model->vertices));
 	ASSERT(model->vertices);
+	model->expandedPositions = malloc(model->vertexCount * sizeof(*model->expandedPositions));
+	ASSERT(model->expandedPositions);
 	ASSERT(1==fread(model->vertices,model->vertexCount * sizeof(*model->vertices),1,f));
+	for (int i = 0; i < model->vertexCount; i++){
+		vec3 *ev = model->expandedPositions+i;
+		ModelVertex *v = model->vertices+i;
+		vec3_copy(v->position,ev);
+		vec3 snorm;
+		vec3_scale(v->normal,1.05f,snorm);
+		vec3_add(ev,snorm,ev);
+	}
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
 	model->materials = malloc(model->materialCount * sizeof(*model->materials));

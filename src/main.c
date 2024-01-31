@@ -1,4 +1,5 @@
 #include <glutil.h>
+#include <perlin_noise.h>
 
 Texture beachBackground, checker, frame;
 
@@ -57,17 +58,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 			switch (button){
 			}
 			break;
-		}
-	}
-}
-
-void clamp_euler(vec3 e){
-	float fp = 4*(float)M_PI;
-	for (int i = 0; i < 3; i++){
-		if (e[i] > fp){
-			e[i] -= fp;
-		} else if (e[i] < -fp){
-			e[i] += fp;
 		}
 	}
 }
@@ -150,8 +140,10 @@ void main(void){
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
+		glShadeModel(GL_SMOOTH);
+
 		glEnable(GL_TEXTURE_2D);
-		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE);
+		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 
 		float vpad = 1080 * 0.15f;
 		float hw = 0.5f * (1080 - 2*vpad);
@@ -199,31 +191,49 @@ void main(void){
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		{
-			static vec3 rot = {0,0,0};
-			float sdt = 100*dt;
-			rot[0] += sdt;
-			rot[1] += 2*sdt;
+			project_perspective(25.0,1.0,0.01,1000.0);
 
-			project_perspective(50.0,(double)1920/(double)1080,0.01,1000.0);
+			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat mat_shininess[] = { 50.0 };
+			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 			
-			glLoadIdentity();
-			glTranslatef(0,0,-5);
-			glRotatef(rot[0],1,0,0);
-			glRotatef(rot[1],0,1,0);
-			glRotatef(rot[2],0,0,1);
+			GLfloat light_ambient[] = { 1.5, 1.5, 1.5, 1.0 };
+			GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat light_position[] = { 1.0, 1.0, 1.0, 0.0 };
+			glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+			glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
-			glBindTexture(GL_TEXTURE_2D,banana.materials[0].textureId);
+			glEnable(GL_LIGHTING);
+			glEnable(GL_LIGHT0);
 
-			glEnableClientState(GL_VERTEX_ARRAY);
-			glEnableClientState(GL_NORMAL_ARRAY);
-			glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-			glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->position);
-			glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->normal);
-			glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->texcoord);
-			glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
-			glDisableClientState(GL_VERTEX_ARRAY);
-			glDisableClientState(GL_NORMAL_ARRAY);
-			glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+			for (int y = 0; y < 8; y++){
+				for (int x = 0; x < 8; x++){
+					glViewport(board.left+x*cellWidth,board.bottom+y*cellWidth,cellWidth,cellWidth);
+
+					glLoadIdentity();
+					glTranslated(0,0,-2.6);
+					glRotated(t0*120+140*x-70*y,0,1,0);
+
+					glBindTexture(GL_TEXTURE_2D,banana.materials[0].textureId);
+
+					glEnableClientState(GL_VERTEX_ARRAY);
+					glEnableClientState(GL_NORMAL_ARRAY);
+					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->position);
+					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->normal);
+					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&banana.vertices->texcoord);
+					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
+					glDisableClientState(GL_VERTEX_ARRAY);
+					glDisableClientState(GL_NORMAL_ARRAY);
+					glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+				}
+			}
+
+			glDisable(GL_LIGHTING);
 		}
 
 		glCheckError();
