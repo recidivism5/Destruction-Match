@@ -88,6 +88,10 @@ void sub_viewport(float x, float y, float width, float height){
 		(int)(screen.height * height / 9.0f)
 	);
 }
+vec2 mouse;
+bool mouse_in_rect(FSRect *r){
+	return mouse[0] > r->x && mouse[0] < (r->x+r->width) && mouse[1] > r->y && mouse[1] < (r->y+r->height);
+}
 
 void main(void){
 	glfwSetErrorCallback(error_callback);
@@ -146,14 +150,12 @@ void main(void){
 		}
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 
-		vec2 mouse;
 		{
 			double mx,my;
 			glfwGetCursorPos(window,&mx,&my);
-			mouse[0] = ((float)mx - screen.x) / screen.width;
-			mouse[1] = ((float)clientHeight-1-(float)my - screen.y) / screen.height;
-			//printf("m: %f %f\n",mouse[0],mouse[1]);
-			printf("%f\n",screen.width/screen.height);
+			printf("%f %f\n",mx,my);
+			mouse[0] = 16 * ((float)mx - screen.x) / (screen.width-1);
+			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
@@ -233,11 +235,17 @@ void main(void){
 
 			for (int y = 0; y < 8; y++){
 				for (int x = 0; x < 8; x++){
-					sub_viewport(
+					FSRect rect = {
 						board.left+x*cellWidth,
 						board.bottom+y*cellWidth,
 						cellWidth,
 						cellWidth
+					};
+					sub_viewport(
+						rect.x,
+						rect.y,
+						rect.width,
+						rect.height
 					);
 
 					glLoadIdentity();
@@ -262,7 +270,11 @@ void main(void){
 					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)banana.expandedPositions);
 					glDisable(GL_TEXTURE_2D);
 					glDisable(GL_LIGHTING);
-					glColor4f(0,0,0,1);
+					if (mouse_in_rect(&rect)){
+						glColor4f(1,1,1,1);
+					} else {
+						glColor4f(0,0,0,1);
+					}
 					glDrawArrays(GL_TRIANGLES,banana.objects[0].vertexOffsetCounts[0].offset,banana.objects[0].vertexOffsetCounts[0].count);
 					glEnable(GL_TEXTURE_2D);
 					glColor4f(1,1,1,1);
