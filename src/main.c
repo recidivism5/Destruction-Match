@@ -136,6 +136,7 @@ void main(void){
 		screen.height = (float)clientWidth * 9.0f / 16.0f;
 		if (screen.height > (float)clientHeight){
 			screen.width = (float)clientHeight * 16.0f / 9.0f;
+			screen.height = screen.width * 9.0f / 16.0f;
 			screen.x = 0.5f * (clientWidth - screen.width);
 			screen.y = 0;
 		} else {
@@ -144,6 +145,16 @@ void main(void){
 			screen.y = 0.5f*(clientHeight - screen.height);
 		}
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
+
+		vec2 mouse;
+		{
+			double mx,my;
+			glfwGetCursorPos(window,&mx,&my);
+			mouse[0] = ((float)mx - screen.x) / screen.width;
+			mouse[1] = ((float)clientHeight-1-(float)my - screen.y) / screen.height;
+			//printf("m: %f %f\n",mouse[0],mouse[1]);
+			printf("%f\n",screen.width/screen.height);
+		}
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
