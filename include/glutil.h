@@ -9,14 +9,6 @@
 #include <base.h>
 
 typedef struct {
-	float left,top,right,bottom;
-} FRect;
-
-typedef struct {
-	float x,y,width,height;
-} FSRect;
-
-typedef struct {
 	int width, height;
 	GLuint id;
 } Texture;

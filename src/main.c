@@ -33,7 +33,7 @@ typedef struct {
 
 typedef struct {
 	FracturedModel *model;
-	int column;
+	ivec2 boardPos;
 	vec2 position;
 	float yVelocity;
 	float rotationRandom;
@@ -140,7 +140,7 @@ void insert_object(int column, FracturedModel *model){
 	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
 		if (!fmi->model){
 			fmi->model = model;
-			fmi->column = column;
+			fmi->boardPos[0] = column;
 			fmi->position[0] = boardRect.left + cellWidth * column;
 			fmi->position[1] = boardRect.top + 4*cellWidth;
 			fmi->yVelocity = 0.0f;
@@ -156,6 +156,27 @@ Texture beachBackground, checker, frame;
 FracturedModel banana;
 
 GLFWwindow *gwindow;
+
+struct {
+	FracturedModelInstance *object;
+	vec2 offset;
+} grab;
+
+void fmi_get_rect(FracturedModelInstance *fmi, FSRect *rect){
+	rect->x = fmi->position[0];
+	rect->y = fmi->position[1];
+	rect->width = cellWidth;
+	rect->height = cellWidth;
+}
+
+bool fmi_selectable(FracturedModelInstance *fmi){
+	if (fmi->model && fmi->locked){
+		FSRect rect;
+		fmi_get_rect(fmi,&rect);
+		return mouse_in_rect(&rect);
+	}
+	return false;
+}
 
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
@@ -207,13 +228,31 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
 	switch (action){
 		case GLFW_PRESS:{
-			insert_object(0,&banana);
 			switch (button){
+				case GLFW_MOUSE_BUTTON_1:{
+					for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
+						if (fmi_selectable(mi)){
+							grab.object = mi;
+							vec2_sub(mi->position,mouse,grab.offset);
+						}
+					}
+					break;
+				}
+				case GLFW_MOUSE_BUTTON_2:{
+					insert_object(1,&banana);
+					break;
+				}
 			}
 			break;
 		}
 		case GLFW_RELEASE:{
 			switch (button){
+				case GLFW_MOUSE_BUTTON_1:{
+					if (grab.object){
+						grab.object = 0;
+					}
+					break;
+				}
 			}
 			break;
 		}
@@ -288,25 +327,35 @@ void main(void){
 		t0 = t1;
 
 		for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
-			if (mi->model && !mi->locked){
-				mi->yVelocity -= 9.8f * dt;
-				mi->position[1] += mi->yVelocity * dt;
-				int highest = -1;
-				for (int y = 7; y >= 0; y--){
-					if (board[y*8+mi->column]){
-						highest = y;
-						break;
+			if (mi->model){
+				if (!mi->locked){
+					mi->yVelocity -= 9.8f * dt;
+					mi->position[1] += mi->yVelocity * dt;
+					int highest = -1;
+					for (int y = 7; y >= 0; y--){
+						if (board[y*8+mi->boardPos[0]]){
+							highest = y;
+							break;
+						}
 					}
-				}
-				ASSERT(highest < 7);
-				float fhighest = boardRect.bottom+(highest+1)*cellWidth;
-				if (mi->position[1] < fhighest){
-					mi->position[1] = fhighest;
-					mi->yVelocity = 0.0f;
-					mi->locked = true;
-					board[(highest+1)*8+mi->column] = mi;
+					ASSERT(highest < 7);
+					float fhighest = boardRect.bottom+(highest+1)*cellWidth;
+					if (mi->position[1] < fhighest){
+						mi->position[1] = fhighest;
+						mi->yVelocity = 0.0f;
+						mi->locked = true;
+						board[(highest+1)*8+mi->boardPos[0]] = mi;
+						mi->boardPos[1] = highest+1;
+					}
+				} else {
+					mi->position[0] = LERP(mi->position[0],boardRect.left+mi->boardPos[0]*cellWidth,6*dt);
+					mi->position[1] = LERP(mi->position[1],boardRect.bottom+mi->boardPos[1]*cellWidth,6*dt);
 				}
 			}
+		}
+
+		if (grab.object){
+			vec2_add(mouse,grab.offset,grab.object->position);
 		}
 
 		////////////// Render:
@@ -399,12 +448,8 @@ void main(void){
 
 			for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
 				if (mi->model){
-					FSRect rect = {
-						mi->position[0],
-						mi->position[1],
-						cellWidth,
-						cellWidth
-					};
+					FSRect rect;
+					fmi_get_rect(mi,&rect);
 					sub_viewport(
 						rect.x,
 						rect.y,
@@ -434,7 +479,7 @@ void main(void){
 					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 					glDisable(GL_TEXTURE_2D);
 					glDisable(GL_LIGHTING);
-					if (mouse_in_rect(&rect)){
+					if (grab.object ? mi == grab.object : fmi_selectable(mi)){
 						glColor4f(1,1,1,1);
 					} else {
 						glColor4f(0,0,0,1);

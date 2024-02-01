@@ -7,17 +7,19 @@ void set_error_callback(void (*func)(void)){
 }
 
 void fatal_error(char *format, ...){
-	error_callback();
-	
-	va_list args;
-	va_start(args,format);
+	if (error_callback){
+		error_callback();
 
-	static char msg[4096];
-	vsnprintf(msg,COUNT(msg),format,args);
-	fprintf(stderr,"%s\n",msg);
-	boxerShow(msg,"Error",BoxerStyleError,BoxerButtonsQuit);
+		va_list args;
+		va_start(args,format);
 
-	va_end(args);
+		static char msg[4096];
+		vsnprintf(msg,COUNT(msg),format,args);
+		fprintf(stderr,"%s\n",msg);
+		boxerShow(msg,"Error",BoxerStyleError,BoxerButtonsQuit);
+
+		va_end(args);
+	}
 	
 	exit(1);
 }

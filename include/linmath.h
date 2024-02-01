@@ -5,6 +5,14 @@
 
 #define LERP(a,b,t) ((a) + (t)*((b)-(a)))
 
+typedef struct {
+	float left,top,right,bottom;
+} FRect;
+
+typedef struct {
+	float x,y,width,height;
+} FSRect;
+
 typedef int ivec2[2];
 typedef int ivec3[3];
 typedef int ivec4[4];
@@ -16,6 +24,9 @@ typedef float vec4[4];
 typedef double dvec3[3];
 
 typedef vec4 mat4[4];
+
+void vec2_add(vec2 a, vec2 b, vec2 dst);
+void vec2_sub(vec2 a, vec2 b, vec2 dst);
 
 void vec3_copy(vec3 src, vec3 dst);
 void vec3_add(vec3 a, vec3 b, vec3 dst);

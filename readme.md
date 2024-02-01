@@ -34,3 +34,5 @@
 - Bathroom
 - Garage
 - Garden
+- Ball game (peanuts)
+- Candy Shop (Gummy bears)
