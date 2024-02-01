@@ -153,7 +153,7 @@ void insert_object(int column, FracturedModel *model){
 
 Texture beachBackground, checker, frame;
 
-FracturedModel banana;
+FracturedModel apple, banana;
 
 GLFWwindow *gwindow;
 
@@ -239,7 +239,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 					break;
 				}
 				case GLFW_MOUSE_BUTTON_2:{
-					insert_object(1,&banana);
+					insert_object(rand_int(8),rand_int(2) ? &apple : &banana);
 					break;
 				}
 			}
@@ -285,7 +285,7 @@ void main(void){
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	gwindow = create_centered_window(1280,960,"Match Mayhem");
+	gwindow = create_centered_window(1600,900,"Match Mayhem");
  
 	glfwSetCursorPosCallback(gwindow, cursor_position_callback);
 	glfwSetMouseButtonCallback(gwindow, mouse_button_callback);
@@ -302,6 +302,7 @@ void main(void){
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 
+	load_fractured_model(&apple,"campaigns/juicebar/models/apple");
 	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
 
 	float vpad = 9 * 0.15f;
@@ -348,8 +349,8 @@ void main(void){
 						mi->boardPos[1] = highest+1;
 					}
 				} else {
-					mi->position[0] = LERP(mi->position[0],boardRect.left+mi->boardPos[0]*cellWidth,6*dt);
-					mi->position[1] = LERP(mi->position[1],boardRect.bottom+mi->boardPos[1]*cellWidth,6*dt);
+					mi->position[0] = LERP(mi->position[0],boardRect.left+mi->boardPos[0]*cellWidth,7*dt);
+					mi->position[1] = LERP(mi->position[1],boardRect.bottom+mi->boardPos[1]*cellWidth,7*dt);
 				}
 			}
 		}

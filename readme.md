@@ -28,7 +28,7 @@
 - Juice Bar
 - Beach
 - Office
-- Grocery Store
+- Grocery Store (cucumber)
 - Burger Joint
 - Toybox (colored dice, all sorts of things)
 - Bathroom
