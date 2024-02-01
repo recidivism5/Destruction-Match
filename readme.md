@@ -36,3 +36,6 @@
 - Garden
 - Ball game (peanuts)
 - Candy Shop (Gummy bears)
+- Nuclear Plant (elements, radioactive, ball-and-stick model and sample)
+- Mall (Nokia phones)
+potted plants

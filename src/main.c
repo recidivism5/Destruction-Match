@@ -1,5 +1,4 @@
 #include <glutil.h>
-#include <perlin_noise.h>
 
 typedef struct {
 	vec3 position;
@@ -157,10 +156,7 @@ FracturedModel apple, banana;
 
 GLFWwindow *gwindow;
 
-struct {
-	FracturedModelInstance *object;
-	vec2 offset;
-} grab;
+FracturedModelInstance *grabbedObject;
 
 void fmi_get_rect(FracturedModelInstance *fmi, FSRect *rect){
 	rect->x = fmi->position[0];
@@ -232,8 +228,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 				case GLFW_MOUSE_BUTTON_1:{
 					for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
 						if (fmi_selectable(mi)){
-							grab.object = mi;
-							vec2_sub(mi->position,mouse,grab.offset);
+							grabbedObject = mi;
 						}
 					}
 					break;
@@ -248,8 +243,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		case GLFW_RELEASE:{
 			switch (button){
 				case GLFW_MOUSE_BUTTON_1:{
-					if (grab.object){
-						grab.object = 0;
+					if (grabbedObject){
+						grabbedObject = 0;
 					}
 					break;
 				}
@@ -327,6 +322,30 @@ void main(void){
 		float dt = (float)(t1 - t0);
 		t0 = t1;
 
+		int clientWidth, clientHeight;
+		glfwGetFramebufferSize(gwindow, &clientWidth, &clientHeight);
+		if (!clientWidth || !clientHeight){
+			goto POLL;
+		}
+		screen.height = (float)clientWidth * 9.0f / 16.0f;
+		if (screen.height > (float)clientHeight){
+			screen.width = (float)clientHeight * 16.0f / 9.0f;
+			screen.height = screen.width * 9.0f / 16.0f;
+			screen.x = 0.5f * (clientWidth - screen.width);
+			screen.y = 0;
+		} else {
+			screen.width = (float)clientWidth;
+			screen.x = 0;
+			screen.y = 0.5f*(clientHeight - screen.height);
+		}
+
+		{
+			double mx,my;
+			glfwGetCursorPos(gwindow,&mx,&my);
+			mouse[0] = 16 * ((float)mx - screen.x) / (screen.width-1);
+			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
+		}
+
 		for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
 			if (mi->model){
 				if (!mi->locked){
@@ -348,42 +367,26 @@ void main(void){
 						board[(highest+1)*8+mi->boardPos[0]] = mi;
 						mi->boardPos[1] = highest+1;
 					}
-				} else {
-					mi->position[0] = LERP(mi->position[0],boardRect.left+mi->boardPos[0]*cellWidth,7*dt);
-					mi->position[1] = LERP(mi->position[1],boardRect.bottom+mi->boardPos[1]*cellWidth,7*dt);
+				} else if (mi != grabbedObject){
+					vec2 target = {
+						boardRect.left+mi->boardPos[0]*cellWidth,
+						boardRect.bottom+mi->boardPos[1]*cellWidth
+					};
+					vec2_lerp(mi->position,target,7*dt,mi->position);
 				}
 			}
 		}
 
-		if (grab.object){
-			vec2_add(mouse,grab.offset,grab.object->position);
+		if (grabbedObject){
+			vec2 target = {
+				mouse[0]-cellWidth/2,
+				mouse[1]-cellWidth/2
+			};
+			vec2_lerp(grabbedObject->position,target,20*dt,grabbedObject->position);
 		}
 
 		////////////// Render:
-		int clientWidth, clientHeight;
-		glfwGetFramebufferSize(gwindow, &clientWidth, &clientHeight);
-		if (!clientWidth || !clientHeight){
-			goto POLL;
-		}
-		screen.height = (float)clientWidth * 9.0f / 16.0f;
-		if (screen.height > (float)clientHeight){
-			screen.width = (float)clientHeight * 16.0f / 9.0f;
-			screen.height = screen.width * 9.0f / 16.0f;
-			screen.x = 0.5f * (clientWidth - screen.width);
-			screen.y = 0;
-		} else {
-			screen.width = (float)clientWidth;
-			screen.x = 0;
-			screen.y = 0.5f*(clientHeight - screen.height);
-		}
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
-
-		{
-			double mx,my;
-			glfwGetCursorPos(gwindow,&mx,&my);
-			mouse[0] = 16 * ((float)mx - screen.x) / (screen.width-1);
-			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
-		}
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -480,7 +483,7 @@ void main(void){
 					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 					glDisable(GL_TEXTURE_2D);
 					glDisable(GL_LIGHTING);
-					if (grab.object ? mi == grab.object : fmi_selectable(mi)){
+					if (grabbedObject ? mi == grabbedObject : fmi_selectable(mi)){
 						glColor4f(1,1,1,1);
 					} else {
 						glColor4f(0,0,0,1);

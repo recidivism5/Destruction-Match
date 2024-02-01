@@ -5,6 +5,10 @@
 #include <string.h>
 #include <stdbool.h>
 
+void vec2_copy(vec2 src, vec2 dst){
+	memcpy(dst,src,sizeof(vec2));
+}
+
 void vec2_add(vec2 a, vec2 b, vec2 dst){
 	dst[0] = a[0] + b[0];
 	dst[1] = a[1] + b[1];
@@ -13,6 +17,11 @@ void vec2_add(vec2 a, vec2 b, vec2 dst){
 void vec2_sub(vec2 a, vec2 b, vec2 dst){
 	dst[0] = a[0] - b[0];
 	dst[1] = a[1] - b[1];
+}
+
+void vec2_lerp(vec2 a, vec2 b, float t, vec2 dst){
+	dst[0] = LERP(a[0],b[0],t);
+	dst[1] = LERP(a[1],b[1],t);
 }
 
 void vec3_copy(vec3 src, vec3 dst){
