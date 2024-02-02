@@ -28,14 +28,16 @@
 - Juice Bar
 - Beach
 - Office
-- Grocery Store (cucumber)
+- Grocery Store (cucumber, broccoli, cauliflower, cabbage, milk, soda, ...)
 - Burger Joint
-- Toybox (colored dice, all sorts of things)
+- Toybox (colored dice, army men, toy cars, jacks, all sorts of things)
 - Bathroom
 - Garage
-- Garden
+- Garden (Trowel, flowers, lady bugs, watering can, shears, gloves, flower pot)
 - Ball game (peanuts)
-- Candy Shop (Gummy bears)
+- Candy Shop (Gummy bears, gumballs)
 - Nuclear Plant (elements, radioactive, ball-and-stick model and sample)
 - Mall (Nokia phones)
+- Christmas (ginger bread men, candy canes, gum drops, led lights, ornaments)
+- Park (basketball, baseball, tennis ball, birdie, football)
 potted plants
