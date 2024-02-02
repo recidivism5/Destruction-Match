@@ -470,6 +470,8 @@ void main(void){
 
 		////////////// Render:
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
+		glScissor((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
+		glEnable(GL_SCISSOR_TEST);
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
