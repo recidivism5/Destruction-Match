@@ -135,6 +135,36 @@ float cellWidth;
 FracturedModelInstance objects[256];
 FracturedModelInstance *board[8*8];
 
+typedef struct {
+	FracturedModel *model;
+	FracturedObject *object;
+	vec2 position;
+	vec2 velocity;
+	float rotationRandom;
+} Fragment;
+
+Fragment fragments[1024];
+void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 position, vec2 velocity, float rotationRandom){
+	for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+		if (!f->model){
+			f->model = model;
+			f->object = object;
+			vec2_copy(position,f->position);
+			vec2_copy(velocity,f->velocity);
+			f->rotationRandom = rotationRandom;
+			return;
+		}
+	}
+	ASSERT(0 && "insert_fragment overflow");
+}
+void explode_object(FracturedModelInstance *object){
+	FracturedModel *m = object->model;
+	for (int i = 1; i < m->objectCount; i++){
+		FracturedObject *fo = m->objects+i;
+		insert_fragment(m,fo,object->position,(vec2){(rand_int(2) ? -1 : 1) * rand_int_range(5,10),rand_int_range(5,10)},object->rotationRandom);
+	}
+}
+
 void insert_object(int column, FracturedModel *model){
 	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
 		if (!fmi->model){
@@ -167,11 +197,15 @@ GLFWwindow *gwindow;
 
 FracturedModelInstance *grabbedObject;
 
-void fmi_get_rect(FracturedModelInstance *fmi, FSRect *rect){
-	rect->x = fmi->position[0];
-	rect->y = fmi->position[1];
+void get_rect(vec2 position, FSRect *rect){
+	rect->x = position[0];
+	rect->y = position[1];
 	rect->width = cellWidth;
 	rect->height = cellWidth;
+}
+
+void fmi_get_rect(FracturedModelInstance *fmi, FSRect *rect){
+	get_rect(fmi->position,rect);
 }
 
 bool fmi_selectable(FracturedModelInstance *fmi){
@@ -219,6 +253,30 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					}
 					break;
 				}
+				case GLFW_KEY_SPACE:{
+					for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
+						if (fmi_selectable(mi)){
+							explode_object(mi);
+							memset(mi,0,sizeof(*mi));
+							for (int y = 0; y < 8; y++){
+								for (int x = 0; x < 8; x++){
+									if (board[y*8+x] == mi){
+										board[y*8+x] = 0;
+										for (int yy = y+1; yy < 8; yy++){
+											if (board[yy*8+x]){
+												board[yy*8+x]->locked = false;
+												board[yy*8+x] = 0;
+											}
+										}
+										goto L0;
+									}
+								}
+							}
+							L0:;
+						}
+					}
+					break;
+				}
 			}
 			break;
 		}
@@ -243,7 +301,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 					break;
 				}
 				case GLFW_MOUSE_BUTTON_2:{
-
 					insert_object(rand_int(8),models[rand_int(COUNT(models))]);
 					break;
 				}
@@ -396,6 +453,21 @@ void main(void){
 			vec2_lerp(grabbedObject->position,target,20*dt,grabbedObject->position);
 		}
 
+		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+			if (f->model){
+				f->velocity[1] -= 9.8f * dt;
+				vec2 dp;
+				vec2_scale(f->velocity,dt,dp);
+				vec2_add(f->position,dp,f->position);
+				if (f->position[0] < -1.0f || 
+					f->position[0] > 16.0f ||
+					f->position[1] < -1.0f ||
+					f->position[1] > 9.0f){
+					f->model = 0;
+				}
+			}
+		}
+
 		////////////// Render:
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 
@@ -478,18 +550,21 @@ void main(void){
 
 					glBindTexture(GL_TEXTURE_2D,mi->model->materials[0].textureId);
 
-					glEnableClientState(GL_VERTEX_ARRAY);
-					glEnableClientState(GL_NORMAL_ARRAY);
-					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 					glEnable(GL_STENCIL_TEST);
 					glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
 					glStencilFunc(GL_ALWAYS,1,0xff);
 					glStencilMask(0xff);
 					glEnable(GL_LIGHTING);
+
+					glEnableClientState(GL_VERTEX_ARRAY);
+					glEnableClientState(GL_NORMAL_ARRAY);
+					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->position);
 					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->normal);
 					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->texcoord);
+
 					glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[0].offset,mi->model->objects[0].vertexOffsetCounts[0].count);
+					
 					glStencilFunc(GL_NOTEQUAL,1,0xff);
 					glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 					glDisable(GL_TEXTURE_2D);
@@ -503,6 +578,42 @@ void main(void){
 					glEnable(GL_TEXTURE_2D);
 					glColor4f(1,1,1,1);
 					glDisable(GL_STENCIL_TEST);
+
+					glDisableClientState(GL_VERTEX_ARRAY);
+					glDisableClientState(GL_NORMAL_ARRAY);
+					glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+				}
+			}
+
+			for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+				if (f->model){
+					FSRect rect;
+					get_rect(f->position,&rect);
+					sub_viewport(
+						rect.x,
+						rect.y,
+						rect.width,
+						rect.height
+					);
+
+					glLoadIdentity();
+					glTranslated(0,0,-2.6);
+					glRotated(t0*120+f->rotationRandom,0,1,0);
+
+					glEnable(GL_LIGHTING);
+
+					glEnableClientState(GL_VERTEX_ARRAY);
+					glEnableClientState(GL_NORMAL_ARRAY);
+					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->position);
+					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->normal);
+					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->texcoord);
+
+					for (int i = 0; i < f->model->materialCount; i++){
+						glBindTexture(GL_TEXTURE_2D,f->model->materials[i].textureId);
+						glDrawArrays(GL_TRIANGLES,f->object->vertexOffsetCounts[i].offset,f->object->vertexOffsetCounts[i].count);
+					}
+
 					glDisableClientState(GL_VERTEX_ARRAY);
 					glDisableClientState(GL_NORMAL_ARRAY);
 					glDisableClientState(GL_TEXTURE_COORD_ARRAY);

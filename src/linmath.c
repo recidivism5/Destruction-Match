@@ -19,6 +19,11 @@ void vec2_sub(vec2 a, vec2 b, vec2 dst){
 	dst[1] = a[1] - b[1];
 }
 
+void vec2_scale(vec2 a, float t, vec2 dst){
+	dst[0] = a[0] * t;
+	dst[1] = a[1] * t;
+}
+
 void vec2_lerp(vec2 a, vec2 b, float t, vec2 dst){
 	dst[0] = LERP(a[0],b[0],t);
 	dst[1] = LERP(a[1],b[1],t);

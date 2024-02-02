@@ -28,6 +28,7 @@ typedef vec4 mat4[4];
 void vec2_copy(vec2 src, vec2 dst);
 void vec2_add(vec2 a, vec2 b, vec2 dst);
 void vec2_sub(vec2 a, vec2 b, vec2 dst);
+void vec2_scale(vec2 a, float t, vec2 dst);
 void vec2_lerp(vec2 a, vec2 b, float t, vec2 dst);
 
 void vec3_copy(vec3 src, vec3 dst);
