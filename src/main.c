@@ -161,7 +161,7 @@ void explode_object(FracturedModelInstance *object){
 	FracturedModel *m = object->model;
 	for (int i = 1; i < m->objectCount; i++){
 		FracturedObject *fo = m->objects+i;
-		insert_fragment(m,fo,object->position,(vec2){(rand_int(2) ? -1 : 1) * rand_int_range(5,10),rand_int_range(5,10)},object->rotationRandom);
+		insert_fragment(m,fo,object->position,(vec2){(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),(float)(rand_int_range(5,10))},object->rotationRandom);
 	}
 }
 
