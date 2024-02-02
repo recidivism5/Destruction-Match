@@ -152,7 +152,16 @@ void insert_object(int column, FracturedModel *model){
 
 Texture beachBackground, checker, frame;
 
-FracturedModel apple, banana;
+FracturedModel 
+	apple,
+	banana,
+	orange;
+
+FracturedModel *models[] = {
+	&apple,
+	&banana,
+	&orange
+};
 
 GLFWwindow *gwindow;
 
@@ -234,7 +243,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 					break;
 				}
 				case GLFW_MOUSE_BUTTON_2:{
-					insert_object(rand_int(8),rand_int(2) ? &apple : &banana);
+
+					insert_object(rand_int(8),models[rand_int(COUNT(models))]);
 					break;
 				}
 			}
@@ -299,6 +309,7 @@ void main(void){
 
 	load_fractured_model(&apple,"campaigns/juicebar/models/apple");
 	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
+	load_fractured_model(&orange,"campaigns/juicebar/models/orange");
 
 	float vpad = 9 * 0.15f;
 	float hw = 0.5f * (9 - 2*vpad);
