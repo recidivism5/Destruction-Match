@@ -186,7 +186,7 @@ void explode_object(FracturedModelInstance *object){
 		FracturedObject *fo = m->objects+i;
 		insert_fragment(m,fo,object->position,(vec2){(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),(float)(rand_int_range(5,10))},object->rotationRandom);
 	}
-	play_sound(bruh,(vec3){object->position[0],object->position[1],0});
+	play_sound(bruh);
 }
 
 void insert_object(int column, FracturedModel *model){

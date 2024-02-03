@@ -81,15 +81,14 @@ void init_sound_sources(void){
     alGenSources(COUNT(sources),sources);
 }
 
-void play_sound(ALuint id, vec3 position){
-    printf("play\n");
+void play_sound(ALuint id){
     for (ALuint *s = sources; s < sources+COUNT(sources); s++){
         ALint state;
         alGetSourcei(*s,AL_SOURCE_STATE,&state);
         if (state != AL_PLAYING){
             alSourcef(*s,AL_PITCH,1.0f);
             alSourcef(*s,AL_GAIN,1.0f);
-            alSource3f(*s,AL_POSITION,position[0],position[1],position[2]);
+            alSource3f(*s,AL_POSITION,0.0f,0.0f,0.0f);
             alSource3f(*s,AL_VELOCITY,0.0f,0.0f,0.0f);
             alSourcei(*s,AL_LOOPING,AL_FALSE);
             alSourcei(*s,AL_BUFFER,id);

@@ -14,4 +14,4 @@ ALuint load_sound(char *name);
 
 void init_sound_sources(void);
 
-void play_sound(ALuint id, vec3 position);
+void play_sound(ALuint id);
