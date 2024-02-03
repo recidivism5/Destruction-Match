@@ -5,6 +5,14 @@
 #include <string.h>
 #include <stdbool.h>
 
+void ivec2_copy(ivec2 src, ivec2 dst){
+	memcpy(dst,src,sizeof(ivec2));
+}
+
+int ivec2_manhattan(ivec2 a, ivec2 b){
+	return abs(a[0]-b[0]) + abs(a[1]-b[1]);
+}
+
 void vec2_copy(vec2 src, vec2 dst){
 	memcpy(dst,src,sizeof(vec2));
 }

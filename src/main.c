@@ -40,6 +40,42 @@ typedef struct {
 	bool locked;
 } FracturedModelInstance;
 
+////////////////GLOBALS:
+
+FSRect screen;
+
+vec2 mouse;
+
+FRect boardRect;
+float cellWidth;
+FracturedModelInstance objects[256];
+FracturedModelInstance *board[8][8];
+int fakeBoard[8][8];
+
+typedef struct {
+	FracturedModel *model;
+	FracturedObject *object;
+	vec2 position;
+	vec2 velocity;
+	float rotationRandom;
+} Fragment;
+
+Fragment fragments[1024];
+
+Texture beachBackground, checker, frame;
+
+FracturedModel models[3];
+
+FracturedModelInstance *grabbedObject;
+
+ALuint bruh;
+
+GLFWwindow *gwindow;
+ALCdevice *alcDevice;
+ALCcontext *alcContext;
+
+////////////////END GLOBALS
+
 void load_fractured_model(FracturedModel *model, char *name){
 	char *path = local_path_to_absolute("res/%s.fmf",name);
 	FILE *f = fopen(path,"rb");
@@ -117,7 +153,6 @@ void delete_fractured_model(FracturedModel *model){
 	memset(model,0,sizeof(*model));
 }
 
-FSRect screen;
 void sub_viewport(float x, float y, float width, float height){
 	glViewport(
 		(int)(screen.x + screen.width * x / 16.0f),
@@ -126,46 +161,10 @@ void sub_viewport(float x, float y, float width, float height){
 		(int)(screen.height * height / 9.0f)
 	);
 }
-vec2 mouse;
+
 bool mouse_in_rect(FSRect *r){
 	return mouse[0] > r->x && mouse[0] < (r->x+r->width) && mouse[1] > r->y && mouse[1] < (r->y+r->height);
 }
-
-FRect boardRect;
-float cellWidth;
-FracturedModelInstance objects[256];
-FracturedModelInstance *board[8*8];
-
-typedef struct {
-	FracturedModel *model;
-	FracturedObject *object;
-	vec2 position;
-	vec2 velocity;
-	float rotationRandom;
-} Fragment;
-
-Fragment fragments[1024];
-
-Texture beachBackground, checker, frame;
-
-FracturedModel 
-	apple,
-	banana,
-	orange;
-
-FracturedModel *models[] = {
-	&apple,
-	&banana,
-	&orange
-};
-
-FracturedModelInstance *grabbedObject;
-
-ALuint bruh;
-
-GLFWwindow *gwindow;
-ALCdevice *alcDevice;
-ALCcontext *alcContext;
 
 void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 position, vec2 velocity, float rotationRandom){
 	for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
@@ -180,13 +179,29 @@ void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 positi
 	}
 	ASSERT(0 && "insert_fragment overflow");
 }
+
 void explode_object(FracturedModelInstance *object){
 	FracturedModel *m = object->model;
 	for (int i = 1; i < m->objectCount; i++){
 		FracturedObject *fo = m->objects+i;
-		insert_fragment(m,fo,object->position,(vec2){(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),(float)(rand_int_range(5,10))},object->rotationRandom);
+		insert_fragment(
+			m,
+			fo,
+			object->position,
+			(vec2){
+				(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),
+				(float)(rand_int_range(5,10))
+			},
+			object->rotationRandom
+		);
 	}
 	play_sound(bruh);
+	memset(object,0,sizeof(*object));
+}
+
+void explode_cell(int x, int y){
+	explode_object(board[y][x]);
+	board[y][x] = 0;
 }
 
 void insert_object(int column, FracturedModel *model){
@@ -230,11 +245,136 @@ bool fmi_selectable(FracturedModelInstance *fmi){
 	return false;
 }
 
-void fill_board(){
-	static int fakeBoard[8*8];
+bool get_mouse_cell(ivec2 cell){
+	cell[0] = (int)floorf((mouse[0] - boardRect.left) / cellWidth);
+	cell[1] = (int)floorf((mouse[1] - boardRect.bottom) / cellWidth);
+	return (cell[0] >= 0 && cell[0] <= 7 && cell[1] >= 0 && cell[1] <= 7);
+}
+
+bool match_exists(){
+	int last;
+	int same;
+	for (int y = 0; y < 8; y++){
+		same = 0;
+		last = -1;
+		for (int x = 0; x < 8; x++){
+			int m = fakeBoard[y][x];
+			if (last != m){
+				same = 1;
+				last = m;
+			} else {
+				same++;
+			}
+			if (same == 3 && last >= 0){
+				return true;
+			}
+		}
+	}
+	for (int x = 0; x < 8; x++){
+		same = 0;
+		last = -1;
+		for (int y = 0; y < 8; y++){
+			int m = fakeBoard[y][x];
+			if (last != m){
+				same = 1;
+				last = m;
+			} else {
+				same++;
+			}
+			if (same == 3 && last >= 0){
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void create_fakeboard(){
 	for (int y = 0; y < 8; y++){
 		for (int x = 0; x < 8; x++){
-			fakeBoard[y*8+x] = rand_int(COUNT(models));
+			fakeBoard[y][x] = board[y][x] ? (int)(board[y][x]->model - models) : -1;
+		}
+	}
+}
+
+bool move_creates_match(ivec2 src, ivec2 dst){
+	create_fakeboard();
+	int t;
+	SWAP(t,fakeBoard[src[1]][src[0]],fakeBoard[dst[1]][dst[0]]);
+	return match_exists();
+}
+
+void find_and_explode_matches(){
+	FracturedModel *last;
+	int same;
+	bool found;
+	do {
+		found = false;
+		for (int y = 0; y < 8; y++){
+			same = 0;
+			last = 0;
+			for (int x = 0; x < 8; x++){
+				FracturedModel *m = board[y][x] ? board[y][x]->model : 0;
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (last){
+					if (same == 3){
+						found = true;
+						for (int xx = x-2; xx <= x; xx++){
+							explode_cell(xx,y);
+						}
+					} else if (same > 3){
+						explode_cell(x,y);
+					}
+				}
+			}
+		}
+		for (int x = 0; x < 8; x++){
+			same = 0;
+			last = 0;
+			for (int y = 0; y < 8; y++){
+				FracturedModel *m = board[y][x] ? board[y][x]->model : 0;
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (last){
+					if (same == 3){
+						found = true;
+						for (int yy = y-2; yy <= y; yy++){
+							explode_cell(x,yy);
+						}
+					} else if (same > 3){
+						explode_cell(x,y);
+					}
+				}
+			}
+		}
+	} while (found);
+	for (int x = 0; x < 8; x++){
+		for (int y = 0; y < 7; y++){
+			if (!board[y][x]){
+				for (int yy = y+1; yy < 8; yy++){
+					if (board[yy][x]){
+						board[yy][x]->locked = false;
+						board[yy][x] = 0;
+					}
+				}
+			}
+		}
+	}
+}
+
+void fill_board(){
+	for (int y = 0; y < 8; y++){
+		for (int x = 0; x < 8; x++){
+			fakeBoard[y][x] = rand_int(COUNT(models));
 		}
 	}
 	int last = -1;
@@ -245,7 +385,7 @@ void fill_board(){
 		for (int y = 0; y < 8; y++){
 			same = 0;
 			for (int x = 0; x < 8; x++){
-				int m = fakeBoard[y*8+x];
+				int m = fakeBoard[y][x];
 				if (last != m){
 					same = 1;
 					last = m;
@@ -254,7 +394,7 @@ void fill_board(){
 				}
 				if (same == 3){
 					int r = rand_int(COUNT(models)-1);
-					fakeBoard[y*8+x] = r >= m ? r+1 : r;
+					fakeBoard[y][x] = r >= m ? r+1 : r;
 					found = true;
 				}
 			}
@@ -262,7 +402,7 @@ void fill_board(){
 		for (int x = 0; x < 8; x++){
 			same = 0;
 			for (int y = 0; y < 8; y++){
-				int m = fakeBoard[y*8+x];
+				int m = fakeBoard[y][x];
 				if (last != m){
 					same = 1;
 					last = m;
@@ -271,7 +411,7 @@ void fill_board(){
 				}
 				if (same == 3){
 					int r = rand_int(COUNT(models)-1);
-					fakeBoard[y*8+x] = r >= m ? r+1 : r;
+					fakeBoard[y][x] = r >= m ? r+1 : r;
 					found = true;
 				}
 			}
@@ -279,7 +419,7 @@ void fill_board(){
 	} while (found);
 	for (int y = 0; y < 8; y++){
 		for (int x = 0; x < 8; x++){
-			insert_object(x,models[fakeBoard[y*8+x]]);
+			insert_object(x,models+fakeBoard[y][x]);
 		}
 	}
 }
@@ -327,22 +467,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					for (FracturedModelInstance *mi = objects; mi < objects+COUNT(objects); mi++){
 						if (fmi_selectable(mi)){
 							explode_object(mi);
-							memset(mi,0,sizeof(*mi));
-							for (int y = 0; y < 8; y++){
-								for (int x = 0; x < 8; x++){
-									if (board[y*8+x] == mi){
-										board[y*8+x] = 0;
-										for (int yy = y+1; yy < 8; yy++){
-											if (board[yy*8+x]){
-												board[yy*8+x]->locked = false;
-												board[yy*8+x] = 0;
-											}
-										}
-										goto L0;
-									}
-								}
-							}
-							L0:;
 						}
 					}
 					break;
@@ -371,7 +495,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 					break;
 				}
 				case GLFW_MOUSE_BUTTON_2:{
-					insert_object(rand_int(8),models[rand_int(COUNT(models))]);
+					insert_object(rand_int(8),models+rand_int(COUNT(models)));
 					break;
 				}
 			}
@@ -381,6 +505,17 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 			switch (button){
 				case GLFW_MOUSE_BUTTON_1:{
 					if (grabbedObject){
+						ivec2 cell;
+						if (get_mouse_cell(cell) &&
+						ivec2_manhattan(cell,grabbedObject->boardPos) == 1){
+							FracturedModelInstance *mi = board[cell[1]][cell[0]];
+							if (mi && move_creates_match(grabbedObject->boardPos,cell)){
+								ivec2_copy(grabbedObject->boardPos,mi->boardPos);
+								ivec2_copy(cell,grabbedObject->boardPos);
+								board[grabbedObject->boardPos[1]][grabbedObject->boardPos[0]] = grabbedObject;
+								board[mi->boardPos[1]][mi->boardPos[0]] = mi;
+							}
+						}
 						grabbedObject = 0;
 					}
 					break;
@@ -416,7 +551,7 @@ void main(void){
  
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	//glfwWindowHint(GLFW_SAMPLES, 4);
 	gwindow = create_centered_window(1600,900,"Match Mayhem");
  
 	glfwSetCursorPosCallback(gwindow, cursor_position_callback);
@@ -441,9 +576,9 @@ void main(void){
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 
-	load_fractured_model(&apple,"campaigns/juicebar/models/apple");
-	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
-	load_fractured_model(&orange,"campaigns/juicebar/models/orange");
+	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
+	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
+	load_fractured_model(models+2,"campaigns/juicebar/models/orange");
 
 	bruh = load_sound("bruh");
 
@@ -502,7 +637,7 @@ void main(void){
 					mi->position[1] += mi->yVelocity * dt;
 					int highest = -1;
 					for (int y = 7; y >= 0; y--){
-						if (board[y*8+mi->boardPos[0]]){
+						if (board[y][mi->boardPos[0]]){
 							highest = y;
 							break;
 						}
@@ -513,7 +648,7 @@ void main(void){
 						mi->position[1] = fhighest;
 						mi->yVelocity = 0.0f;
 						mi->locked = true;
-						board[(highest+1)*8+mi->boardPos[0]] = mi;
+						board[(highest+1)][mi->boardPos[0]] = mi;
 						mi->boardPos[1] = highest+1;
 					}
 				} else if (mi != grabbedObject){
@@ -548,6 +683,8 @@ void main(void){
 				}
 			}
 		}
+
+		find_and_explode_matches();
 
 		////////////// Render:
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
