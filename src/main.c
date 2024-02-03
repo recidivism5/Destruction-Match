@@ -145,6 +145,28 @@ typedef struct {
 } Fragment;
 
 Fragment fragments[1024];
+
+Texture beachBackground, checker, frame;
+
+FracturedModel 
+	apple,
+	banana,
+	orange;
+
+FracturedModel *models[] = {
+	&apple,
+	&banana,
+	&orange
+};
+
+FracturedModelInstance *grabbedObject;
+
+ALuint bruh;
+
+GLFWwindow *gwindow;
+ALCdevice *alcDevice;
+ALCcontext *alcContext;
+
 void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 position, vec2 velocity, float rotationRandom){
 	for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
 		if (!f->model){
@@ -164,6 +186,7 @@ void explode_object(FracturedModelInstance *object){
 		FracturedObject *fo = m->objects+i;
 		insert_fragment(m,fo,object->position,(vec2){(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),(float)(rand_int_range(5,10))},object->rotationRandom);
 	}
+	play_sound(bruh,(vec3){object->position[0],object->position[1],0});
 }
 
 void insert_object(int column, FracturedModel *model){
@@ -186,23 +209,6 @@ void insert_object(int column, FracturedModel *model){
 	}
 	ASSERT(0 && "insert object overflow");
 }
-
-Texture beachBackground, checker, frame;
-
-FracturedModel 
-	apple,
-	banana,
-	orange;
-
-FracturedModel *models[] = {
-	&apple,
-	&banana,
-	&orange
-};
-
-GLFWwindow *gwindow;
-
-FracturedModelInstance *grabbedObject;
 
 void get_rect(vec2 position, FSRect *rect){
 	rect->x = position[0];
@@ -281,6 +287,9 @@ void fill_board(){
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
+	alcMakeContextCurrent(0);
+	alcDestroyContext(alcContext);
+	alcCloseDevice(alcDevice);
 }
 
 void error_callback(int error, const char* description){
@@ -418,6 +427,13 @@ void main(void){
 	gladLoadGL();
 	glfwSwapInterval(1);
 
+	alcDevice = alcOpenDevice(0);
+	ASSERT(alcDevice);
+	alcContext = alcCreateContext(alcDevice,0);
+	ASSERT(alcContext);
+	ASSERT(alcMakeContextCurrent(alcContext));
+	init_sound_sources();
+
 	srand((unsigned int)time(0));
 
 	//Init:
@@ -428,6 +444,8 @@ void main(void){
 	load_fractured_model(&apple,"campaigns/juicebar/models/apple");
 	load_fractured_model(&banana,"campaigns/juicebar/models/banana");
 	load_fractured_model(&orange,"campaigns/juicebar/models/orange");
+
+	bruh = load_sound("bruh");
 
 	float vpad = 9 * 0.15f;
 	float hw = 0.5f * (9 - 2*vpad);
@@ -689,6 +707,8 @@ void main(void){
 		}
 
 		glCheckError();
+		alCheckError();
+		alcCheckError(alcDevice);
  
 		glfwSwapBuffers(gwindow);
 
