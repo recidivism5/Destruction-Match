@@ -166,7 +166,6 @@ void explode_object(FracturedModelInstance *object){
 }
 
 void insert_object(int column, FracturedModel *model){
-	//find highest object in column, place 2 spaces above that
 	float highest = boardRect.top + 4*cellWidth;
 	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
 		if (fmi->model && fmi->boardPos[0] == column && fmi->position[1] > highest){
@@ -225,9 +224,55 @@ bool fmi_selectable(FracturedModelInstance *fmi){
 }
 
 void fill_board(){
+	static int fakeBoard[8*8];
 	for (int y = 0; y < 8; y++){
 		for (int x = 0; x < 8; x++){
-			insert_object(x,models[rand_int(COUNT(models))]);
+			fakeBoard[y*8+x] = rand_int(COUNT(models));
+		}
+	}
+	int last = -1;
+	int same;
+	bool found;
+	do {
+		found = false;
+		for (int y = 0; y < 8; y++){
+			same = 0;
+			for (int x = 0; x < 8; x++){
+				int m = fakeBoard[y*8+x];
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (same == 3){
+					int r = rand_int(COUNT(models)-1);
+					fakeBoard[y*8+x] = r >= m ? r+1 : r;
+					found = true;
+				}
+			}
+		}
+		for (int x = 0; x < 8; x++){
+			same = 0;
+			for (int y = 0; y < 8; y++){
+				int m = fakeBoard[y*8+x];
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (same == 3){
+					int r = rand_int(COUNT(models)-1);
+					fakeBoard[y*8+x] = r >= m ? r+1 : r;
+					found = true;
+				}
+			}
+		}
+	} while (found);
+	for (int y = 0; y < 8; y++){
+		for (int x = 0; x < 8; x++){
+			insert_object(x,models[fakeBoard[y*8+x]]);
 		}
 	}
 }
