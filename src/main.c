@@ -166,12 +166,19 @@ void explode_object(FracturedModelInstance *object){
 }
 
 void insert_object(int column, FracturedModel *model){
+	//find highest object in column, place 2 spaces above that
+	float highest = boardRect.top + 4*cellWidth;
+	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
+		if (fmi->model && fmi->boardPos[0] == column && fmi->position[1] > highest){
+			highest = fmi->position[1];
+		}
+	}
 	for (FracturedModelInstance *fmi = objects; fmi < objects+COUNT(objects); fmi++){
 		if (!fmi->model){
 			fmi->model = model;
 			fmi->boardPos[0] = column;
 			fmi->position[0] = boardRect.left + cellWidth * column;
-			fmi->position[1] = boardRect.top + 4*cellWidth;
+			fmi->position[1] = highest + 2*cellWidth;
 			fmi->yVelocity = 0.0f;
 			fmi->rotationRandom = (float)rand_int(400);
 			return;
@@ -215,6 +222,14 @@ bool fmi_selectable(FracturedModelInstance *fmi){
 		return mouse_in_rect(&rect);
 	}
 	return false;
+}
+
+void fill_board(){
+	for (int y = 0; y < 8; y++){
+		for (int x = 0; x < 8; x++){
+			insert_object(x,models[rand_int(COUNT(models))]);
+		}
+	}
 }
 
 void cleanup(void){
@@ -378,6 +393,8 @@ void main(void){
 	boardRect.bottom = center[1]-hw;
 	boardRect.top = center[1]+hw;
 	vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
+
+	fill_board();
 
 	//Loop:
 
