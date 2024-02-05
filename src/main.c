@@ -39,6 +39,7 @@ typedef struct {
 	float yVelocity;
 	float rotationRandom;
 	bool locked;
+	bool animating;
 } FracturedModelInstance;
 
 typedef struct {
@@ -54,7 +55,19 @@ typedef struct {
 	int direction;
 } EmptyPair;
 
+typedef struct {
+	bool active;
+	ivec2 src, dst;
+	float t;
+} Move;
+
 ////////////////GLOBALS:
+
+GLFWwindow *gwindow;
+ALCdevice *alcDevice;
+ALCcontext *alcContext;
+
+ALuint bruh;
 
 FontAtlas font;
 
@@ -75,11 +88,7 @@ FracturedModel models[3];
 
 FracturedModelInstance *grabbedObject;
 
-ALuint bruh;
-
-GLFWwindow *gwindow;
-ALCdevice *alcDevice;
-ALCcontext *alcContext;
+Move move;
 
 ////////////////END GLOBALS
 
@@ -305,6 +314,22 @@ bool move_makes_match(ivec2 src, ivec2 dst){
 	return false;
 }
 
+void start_move(ivec2 src, ivec2 dst){
+	FracturedModelInstance 
+		*si = &board[src[0]][src[1]],
+		*di = &board[dst[0]][dst[1]];
+	si->animating = true;
+	di->animating = true;
+	if (!move.active){
+		move.active = true;
+		move.t = 0.0f;
+		ivec2_copy(src,move.src);
+		ivec2_copy(dst,move.dst);
+		return;
+	}
+	ASSERT(0 && "start_move overflowed");
+}
+
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
@@ -387,8 +412,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 							ivec2_manhattan(src,dst) == 1 &&
 							move_makes_match(src,dst)
 						){
-							FracturedModelInstance t;
-							SWAP(t,board[src[0]][src[1]],board[dst[0]][dst[1]]);
+							start_move(src,dst);
 						}
 						grabbedObject = 0;
 					}
@@ -676,6 +700,34 @@ void main(void){
 			}
 		}
 
+		//animate move:
+		if (move.active){
+			FracturedModelInstance
+				*si = &board[move.src[0]][move.src[1]],
+				*di = &board[move.dst[0]][move.dst[1]];
+			vec2 spos = {
+				boardRect.left + move.src[0]*cellWidth,
+				boardRect.bottom + move.src[1]*cellWidth
+			};
+			vec2 dpos = {
+				boardRect.left + move.dst[0]*cellWidth,
+				boardRect.bottom + move.dst[1]*cellWidth
+			};
+			move.t += 5*dt;
+			if (move.t >= 1.0f){
+				move.active = false;
+				si->animating = false;
+				di->animating = false;
+				vec2_copy(dpos,si->position);
+				vec2_copy(spos,di->position);
+				FracturedModelInstance temp;
+				SWAP(temp,*si,*di);
+				continue;
+			}
+			vec2_lerp(spos,dpos,move.t,si->position);
+			vec2_lerp(dpos,spos,move.t,di->position);
+		}
+
 		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
 			if (f->model){
 				f->velocity[1] -= 9.8f * dt;
@@ -687,28 +739,6 @@ void main(void){
 					f->position[1] < -1.0f ||
 					f->position[1] > 9.0f){
 					f->model = 0;
-				}
-			}
-		}
-
-		//move locked objects
-		{
-			for (int x = 0; x < 8; x++){
-				for (int y = 0; y < 8; y++){
-					FracturedModelInstance *mi = &board[x][y];
-					if (mi == grabbedObject){
-						vec2 target = {
-							mouse[0]-cellWidth/2,
-							mouse[1]-cellWidth/2
-						};
-						vec2_lerp(mi->position,target,20*dt,mi->position);
-					} else if (mi->locked){
-						vec2 root = {
-							boardRect.left+x*cellWidth,
-							boardRect.bottom+y*cellWidth
-						};
-						vec2_lerp(mi->position,root,20*dt,mi->position);
-					}
 				}
 			}
 		}
@@ -818,7 +848,9 @@ void main(void){
 						glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 						glDisable(GL_TEXTURE_2D);
 						glDisable(GL_LIGHTING);
-						if (grabbedObject ? mi == grabbedObject : fmi_selectable(mi)){
+						if (mi == grabbedObject){
+							glColor4f(0,1,0,1);
+						} else if (fmi_selectable(mi)){
 							glColor4f(1,1,1,1);
 						} else {
 							glColor4f(0,0,0,1);
