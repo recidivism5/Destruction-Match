@@ -23,6 +23,10 @@
 - Endless mode (Random backgrounds and objects)
 - Unlock themes and backgrounds for endless mode
 - Unlock custom cursors
+Customers come up and want some combination of items
+When you make a match, an item of that type drops from the sky.
+Select a customer bin and catch the right items. If you catch a wrong item,
+you get a chunk taken out of your time.
 
 ### Campaigns:
 - Juice Bar
@@ -40,4 +44,5 @@
 - Mall (Nokia phones)
 - Christmas (ginger bread men, candy canes, gum drops, led lights, ornaments)
 - Park (basketball, baseball, tennis ball, birdie, football)
+- Mine (coal and iron, pickaxe, gems, torch, miner's helmet)
 potted plants
