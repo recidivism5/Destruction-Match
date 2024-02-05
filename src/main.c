@@ -659,6 +659,13 @@ void main(void){
 				if (mi->model && !mi->locked){
 					mi->yVelocity += -9.8f * dt;
 					mi->position[1] += mi->yVelocity * dt;
+					if (y){
+						float top = board[x][y-1].position[1] + cellWidth - 0.001f;
+						if (mi->position[1] < top){
+							mi->position[1] = top;
+							mi->yVelocity = 0.0f;
+						}
+					}
 					float rest = boardRect.bottom+y*cellWidth;
 					if (mi->position[1] < rest){
 						mi->position[1] = rest;
