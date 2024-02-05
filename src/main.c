@@ -691,27 +691,25 @@ void main(void){
 			}
 		}
 
-		//move grabbed objects
+		//move locked objects
 		{
 			for (int x = 0; x < 8; x++){
 				for (int y = 0; y < 8; y++){
 					FracturedModelInstance *mi = &board[x][y];
-					if (mi->locked && mi != grabbedObject){
+					if (mi == grabbedObject){
 						vec2 target = {
+							mouse[0]-cellWidth/2,
+							mouse[1]-cellWidth/2
+						};
+						vec2_lerp(mi->position,target,20*dt,mi->position);
+					} else if (mi->locked){
+						vec2 root = {
 							boardRect.left+x*cellWidth,
 							boardRect.bottom+y*cellWidth
 						};
-						vec2_lerp(mi->position,target,20*dt,mi->position);
+						vec2_lerp(mi->position,root,20*dt,mi->position);
 					}
 				}
-			}
-
-			if (grabbedObject){
-				vec2 target = {
-					mouse[0]-cellWidth/2,
-					mouse[1]-cellWidth/2
-				};
-				vec2_lerp(grabbedObject->position,target,20*dt,grabbedObject->position);
 			}
 		}
 

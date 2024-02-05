@@ -37,6 +37,24 @@ void vec2_lerp(vec2 a, vec2 b, float t, vec2 dst){
 	dst[1] = LERP(a[1],b[1],t);
 }
 
+float vec2_dot(vec2 a, vec2 b){
+	return a[0]*b[0] + a[1]*b[1];
+}
+
+float vec2_length(vec2 a){
+	return sqrtf(vec2_dot(a,a));
+}
+
+void vec2_set_length(vec2 v, float l, vec2 dst){
+	vec2_scale(v,l/vec2_length(v),dst);
+}
+
+void vec2_clamp_length(vec2 a, float l, vec2 dst){
+	float len = vec2_length(a);
+	len = MIN(l, len);
+	vec2_set_length(a,len,dst);
+}
+
 void vec3_copy(vec3 src, vec3 dst){
 	memcpy(dst,src,sizeof(vec3));
 }

@@ -4,6 +4,8 @@
 #include <math.h>
 
 #define LERP(a,b,t) ((a) + (t)*((b)-(a)))
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 typedef struct {
 	float left,top,right,bottom;
@@ -33,6 +35,10 @@ void vec2_add(vec2 a, vec2 b, vec2 dst);
 void vec2_sub(vec2 a, vec2 b, vec2 dst);
 void vec2_scale(vec2 a, float t, vec2 dst);
 void vec2_lerp(vec2 a, vec2 b, float t, vec2 dst);
+float vec2_dot(vec2 a, vec2 b);
+float vec2_length(vec2 a);
+void vec2_set_length(vec2 v, float l, vec2 dst);
+void vec2_clamp_length(vec2 a, float l, vec2 dst);
 
 void vec3_copy(vec3 src, vec3 dst);
 void vec3_add(vec3 a, vec3 b, vec3 dst);
