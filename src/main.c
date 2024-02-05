@@ -247,18 +247,30 @@ bool move_makes_match(ivec2 src, ivec2 dst){
 	FracturedModel *last;
 	SWAP(last,fakeboard[src[0]][src[1]],fakeboard[dst[0]][dst[1]]);
 	int same;
+	bool contains;
 	for (int y = 0; y < 8; y++){
 		last = 0;
 		same = 0;
 		for (int x = 0; x < 8; x++){
+			FracturedModelInstance *mi = &board[x][y];
+			if (!mi->locked){
+				same = 0;
+				last = 0;
+				contains = false;
+				continue;
+			}
 			FracturedModel *m = fakeboard[x][y];
 			if (last != m){
 				same = 1;
 				last = m;
+				contains = false;
 			} else {
 				same++;
 			}
-			if (same == 3){
+			if ((x == src[0] && y == src[1]) || (x == dst[0] && y == dst[1])){
+				contains = true;
+			}
+			if (same == 3 && contains){
 				return true;
 			}
 		}
@@ -267,14 +279,25 @@ bool move_makes_match(ivec2 src, ivec2 dst){
 		last = 0;
 		same = 0;
 		for (int y = 0; y < 8; y++){
+			FracturedModelInstance *mi = &board[x][y];
+			if (!mi->locked){
+				same = 0;
+				last = 0;
+				contains = false;
+				continue;
+			}
 			FracturedModel *m = fakeboard[x][y];
 			if (last != m){
 				same = 1;
 				last = m;
+				contains = false;
 			} else {
 				same++;
 			}
-			if (same == 3){
+			if ((x == src[0] && y == src[1]) || (x == dst[0] && y == dst[1])){
+				contains = true;
+			}
+			if (same == 3 && contains){
 				return true;
 			}
 		}
@@ -455,6 +478,8 @@ void main(void){
 		double t1 = glfwGetTime();
 		float dt = (float)(t1 - t0);
 		t0 = t1;
+
+		//dt *= 0.25f;
 
 		int clientWidth, clientHeight;
 		glfwGetFramebufferSize(gwindow, &clientWidth, &clientHeight);
