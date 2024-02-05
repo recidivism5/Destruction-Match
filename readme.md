@@ -23,10 +23,11 @@
 - Endless mode (Random backgrounds and objects)
 - Unlock themes and backgrounds for endless mode
 - Unlock custom cursors
-Customers come up and want some combination of items
-When you make a match, an item of that type drops from the sky.
-Select a customer bin and catch the right items. If you catch a wrong item,
-you get a chunk taken out of your time.
+right click drag over items to pull them out, if they match an order.
+must be in relative order, like a word search. so, can be backwards, but must be in order.
+for juice bar, they go into blender and are dispensed to the customer
+can do a minigame where you have to stop pouring the smoothie in a certain range
+for christmas, items go into a gift box, then you have to put the right wrapping and bow color on it
 
 ### Campaigns:
 - Juice Bar
