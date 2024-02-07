@@ -90,6 +90,9 @@ FracturedModelInstance *grabbedObject;
 
 Move move;
 
+ivec2 marked[64*2];
+int markedCount = 0;
+
 ////////////////END GLOBALS
 
 void load_fractured_model(FracturedModel *model, char *name){
@@ -196,22 +199,30 @@ void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 positi
 	ASSERT(0 && "insert_fragment overflow");
 }
 
+void mark(int x, int y){
+	ASSERT(markedCount < COUNT(marked));
+	marked[markedCount][0] = x;
+	marked[markedCount][1] = y;
+	markedCount++;
+}
+
 void explode_object(FracturedModelInstance *object){
-	FracturedModel *m = object->model;
-	for (int i = 1; i < m->objectCount; i++){
-		FracturedObject *fo = m->objects+i;
-		insert_fragment(
-			m,
-			fo,
-			object->position,
-			(vec2){
-				(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),
-				(float)(rand_int_range(5,10))
-			},
-			object->rotationRandom
-		);
+	if (object->model){
+		for (int i = 1; i < object->model->objectCount; i++){
+			FracturedObject *fo = object->model->objects+i;
+			insert_fragment(
+				object->model,
+				fo,
+				object->position,
+				(vec2){
+					(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),
+					(float)(rand_int_range(5,10))
+				},
+				object->rotationRandom
+			);
+		}
+		object->model = 0;
 	}
-	object->model = 0;
 }
 
 void explode_cell(int x, int y){
@@ -245,6 +256,11 @@ bool get_mouse_cell(ivec2 cell){
 }
 
 bool move_makes_match(ivec2 src, ivec2 dst){
+	/*
+	this needs to check that the things matched with are not part of any other matches.
+	or maybe instead, unlock anything this move matches with, so that falling objects
+	can't match with any of it while the move is animating.
+	*/
 	if (!board[src[0]][src[1]].locked || !board[dst[0]][dst[1]].locked){
 		return false;
 	}
@@ -532,70 +548,72 @@ void main(void){
 		//explode matches and refill board
 		{
 			//explode
+			/*
+			this needs to mark objects for explosion and then explode them.
+			otherwise we miss multi-matches
+			*/
+			markedCount = 0;
 			FracturedModel *last;
 			int same;
-			bool found;
-			do {
-				found = false;
-				for (int y = 0; y < 8; y++){
-					same = 0;
-					last = 0;
-					for (int x = 0; x < 8; x++){
-						FracturedModelInstance *mi = &board[x][y];
-						if (!mi->locked){
-							same = 0;
-							last = 0;
-							continue;
-						}
-						FracturedModel *m = board[x][y].model;
-						if (last != m){
-							same = 1;
-							last = m;
-						} else {
-							same++;
-						}
-						if (last){
-							if (same == 3){
-								found = true;
-								for (int xx = x-2; xx <= x; xx++){
-									explode_cell(xx,y);
-								}
-							} else if (same > 3){
-								explode_cell(x,y);
-							}
-						}
-					}
-				}
+			for (int y = 0; y < 8; y++){
+				same = 0;
+				last = 0;
 				for (int x = 0; x < 8; x++){
-					same = 0;
-					last = 0;
-					for (int y = 0; y < 8; y++){
-						FracturedModelInstance *mi = &board[x][y];
-						if (!mi->locked){
-							same = 0;
-							last = 0;
-							continue;
-						}
-						FracturedModel *m = board[x][y].model;
-						if (last != m){
-							same = 1;
-							last = m;
-						} else {
-							same++;
-						}
-						if (last){
-							if (same == 3){
-								found = true;
-								for (int yy = y-2; yy <= y; yy++){
-									explode_cell(x,yy);
-								}
-							} else if (same > 3){
-								explode_cell(x,y);
+					FracturedModelInstance *mi = &board[x][y];
+					if (!mi->model || !mi->locked){
+						same = 0;
+						last = 0;
+						continue;
+					}
+					FracturedModel *m = board[x][y].model;
+					if (last != m){
+						same = 1;
+						last = m;
+					} else {
+						same++;
+					}
+					if (last){
+						if (same == 3){
+							for (int xx = x-2; xx <= x; xx++){
+								mark(xx,y);
 							}
+						} else if (same > 3){
+							mark(x,y);
 						}
 					}
 				}
-			} while (found);
+			}
+			for (int x = 0; x < 8; x++){
+				same = 0;
+				last = 0;
+				for (int y = 0; y < 8; y++){
+					FracturedModelInstance *mi = &board[x][y];
+					if (!mi->model || !mi->locked){
+						same = 0;
+						last = 0;
+						continue;
+					}
+					FracturedModel *m = board[x][y].model;
+					if (last != m){
+						same = 1;
+						last = m;
+					} else {
+						same++;
+					}
+					if (last){
+						if (same == 3){
+							for (int yy = y-2; yy <= y; yy++){
+								mark(x,yy);
+							}
+						} else if (same > 3){
+							mark(x,y);
+						}
+					}
+				}
+			}
+			for (int i = 0; i < markedCount; i++){
+				explode_cell(marked[i][0],marked[i][1]);
+			}
 			for (int x = 0; x < 8; x++){
 				FracturedModelInstance *mi = board[x];
 				while (mi->model){
@@ -620,6 +638,7 @@ void main(void){
 					fakeboard[x][y] = board[x][y].model ? board[x][y].model : models+rand_int(COUNT(models));
 				}
 			}
+			bool found;
 			do {
 				//need to ensure at least 1 potential match here
 				found = false;
@@ -677,68 +696,71 @@ void main(void){
 			}
 		}
 
-		for (int x = 0; x < 8; x++){
-			for (int y = 0; y < 8; y++){
-				FracturedModelInstance *mi = &board[x][y];
-				if (mi->model && !mi->locked){
-					mi->yVelocity += -9.8f * dt;
-					mi->position[1] += mi->yVelocity * dt;
-					if (y){
-						float top = board[x][y-1].position[1] + cellWidth - 0.001f;
-						if (mi->position[1] < top){
-							mi->position[1] = top;
+		//update objects
+		{
+			for (int x = 0; x < 8; x++){
+				for (int y = 0; y < 8; y++){
+					FracturedModelInstance *mi = &board[x][y];
+					if (mi->model && !mi->locked){
+						mi->yVelocity += -9.8f * dt;
+						mi->position[1] += mi->yVelocity * dt;
+						if (y){
+							float top = board[x][y-1].position[1] + cellWidth - 0.001f;
+							if (mi->position[1] < top){
+								mi->position[1] = top;
+								mi->yVelocity = 0.0f;
+							}
+						}
+						float rest = boardRect.bottom+y*cellWidth;
+						if (mi->position[1] < rest){
+							mi->position[1] = rest;
+							mi->locked = true;
 							mi->yVelocity = 0.0f;
 						}
 					}
-					float rest = boardRect.bottom+y*cellWidth;
-					if (mi->position[1] < rest){
-						mi->position[1] = rest;
-						mi->locked = true;
-						mi->yVelocity = 0.0f;
-					}
 				}
 			}
-		}
 
-		//animate move:
-		if (move.active){
-			FracturedModelInstance
-				*si = &board[move.src[0]][move.src[1]],
-				*di = &board[move.dst[0]][move.dst[1]];
-			vec2 spos = {
-				boardRect.left + move.src[0]*cellWidth,
-				boardRect.bottom + move.src[1]*cellWidth
-			};
-			vec2 dpos = {
-				boardRect.left + move.dst[0]*cellWidth,
-				boardRect.bottom + move.dst[1]*cellWidth
-			};
-			move.t += 5*dt;
-			if (move.t >= 1.0f){
-				move.active = false;
-				si->animating = false;
-				di->animating = false;
-				vec2_copy(dpos,si->position);
-				vec2_copy(spos,di->position);
-				FracturedModelInstance temp;
-				SWAP(temp,*si,*di);
-				continue;
+			//animate move:
+			if (move.active){
+				FracturedModelInstance
+					*si = &board[move.src[0]][move.src[1]],
+					*di = &board[move.dst[0]][move.dst[1]];
+				vec2 spos = {
+					boardRect.left + move.src[0]*cellWidth,
+					boardRect.bottom + move.src[1]*cellWidth
+				};
+				vec2 dpos = {
+					boardRect.left + move.dst[0]*cellWidth,
+					boardRect.bottom + move.dst[1]*cellWidth
+				};
+				move.t += 5*dt;
+				if (move.t >= 1.0f){
+					move.active = false;
+					si->animating = false;
+					di->animating = false;
+					vec2_copy(dpos,si->position);
+					vec2_copy(spos,di->position);
+					FracturedModelInstance temp;
+					SWAP(temp,*si,*di);
+					continue;
+				}
+				vec2_lerp(spos,dpos,move.t,si->position);
+				vec2_lerp(dpos,spos,move.t,di->position);
 			}
-			vec2_lerp(spos,dpos,move.t,si->position);
-			vec2_lerp(dpos,spos,move.t,di->position);
-		}
 
-		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
-			if (f->model){
-				f->velocity[1] -= 9.8f * dt;
-				vec2 dp;
-				vec2_scale(f->velocity,dt,dp);
-				vec2_add(f->position,dp,f->position);
-				if (f->position[0] < -1.0f || 
-					f->position[0] > 16.0f ||
-					f->position[1] < -1.0f ||
-					f->position[1] > 9.0f){
-					f->model = 0;
+			for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+				if (f->model){
+					f->velocity[1] -= 9.8f * dt;
+					vec2 dp;
+					vec2_scale(f->velocity,dt,dp);
+					vec2_add(f->position,dp,f->position);
+					if (f->position[0] < -1.0f || 
+						f->position[0] > 16.0f ||
+						f->position[1] < -1.0f ||
+						f->position[1] > 9.0f){
+						f->model = 0;
+					}
 				}
 			}
 		}
