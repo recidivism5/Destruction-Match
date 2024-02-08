@@ -383,22 +383,21 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 							FracturedModelInstance
 								*si = &board[src[0]][src[1]],
 								*di = &board[dst[0]][dst[1]];
-							if (si->state != SETTLED || di->state != SETTLED){
-								break;
-							}
-							FracturedModel *temp;
-							SWAP(temp,si->model,di->model);
-							if (lock_match(src[0],src[1]) || lock_match(dst[0],dst[1])){
-								si->state = ANIMATING;
-								di->state = ANIMATING;
-								if (!move.active){
-									move.active = true;
-									move.t = 0.0f;
-									ivec2_copy(src,move.src);
-									ivec2_copy(dst,move.dst);
+							if (si->state == SETTLED && di->state == SETTLED){
+								FracturedModel *temp;
+								SWAP(temp,si->model,di->model);
+								if (lock_match(src[0],src[1]) || lock_match(dst[0],dst[1])){
+									si->state = ANIMATING;
+									di->state = ANIMATING;
+									if (!move.active){
+										move.active = true;
+										move.t = 0.0f;
+										ivec2_copy(src,move.src);
+										ivec2_copy(dst,move.dst);
+									}
 								}
+								SWAP(temp,si->model,di->model);
 							}
-							SWAP(temp,si->model,di->model);
 						}
 						grabbedObject = 0;
 					}
