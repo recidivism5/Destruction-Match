@@ -488,7 +488,7 @@ void main(void){
 		float dt = (float)(t1 - t0);
 		t0 = t1;
 
-		//dt *= 0.25f;
+		//dt *= 0.125f;
 
 		int clientWidth, clientHeight;
 		glfwGetFramebufferSize(gwindow, &clientWidth, &clientHeight);
@@ -577,6 +577,9 @@ void main(void){
 					}
 				}
 			}
+		}
+		if (markedCount){
+			play_sound(bruh);
 		}
 		for (int i = 0; i < markedCount; i++){
 			explode_object(marked[i]);
