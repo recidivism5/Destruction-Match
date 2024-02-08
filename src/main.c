@@ -33,13 +33,19 @@ typedef struct {
 	FracturedObject *objects;
 } FracturedModel;
 
-typedef struct {
+typedef enum {
+	UNPLACED,
+	FALLING,
+	SETTLED,
+	ANIMATING
+} ObjectState;
+
+typedef struct FracturedModelInstance{
 	FracturedModel *model;
 	vec2 position;
 	float yVelocity;
 	float rotationRandom;
-	bool locked;
-	bool animating;
+	ObjectState state;
 } FracturedModelInstance;
 
 typedef struct {
@@ -78,7 +84,6 @@ vec2 mouse;
 FRect boardRect;
 float cellWidth;
 FracturedModelInstance board[8][8];//by column,row
-FracturedModel *fakeboard[8][8];
 
 Fragment fragments[1024];
 
@@ -88,10 +93,13 @@ FracturedModel models[3];
 
 FracturedModelInstance *grabbedObject;
 
-Move move;
+EmptyPair pairs[128];
+int pairCount;
 
-ivec2 marked[64*2];
-int markedCount = 0;
+FracturedModelInstance *marked[64*2];
+int markedCount;
+
+Move move;
 
 ////////////////END GLOBALS
 
@@ -199,15 +207,8 @@ void insert_fragment(FracturedModel *model, FracturedObject *object, vec2 positi
 	ASSERT(0 && "insert_fragment overflow");
 }
 
-void mark(int x, int y){
-	ASSERT(markedCount < COUNT(marked));
-	marked[markedCount][0] = x;
-	marked[markedCount][1] = y;
-	markedCount++;
-}
-
 void explode_object(FracturedModelInstance *object){
-	if (object->model){
+	if (object->state == SETTLED){
 		for (int i = 1; i < object->model->objectCount; i++){
 			FracturedObject *fo = object->model->objects+i;
 			insert_fragment(
@@ -221,12 +222,8 @@ void explode_object(FracturedModelInstance *object){
 				object->rotationRandom
 			);
 		}
-		object->model = 0;
+		object->state = UNPLACED;
 	}
-}
-
-void explode_cell(int x, int y){
-	explode_object(&board[x][y]);
 }
 
 void get_rect(vec2 position, FSRect *rect){
@@ -241,7 +238,7 @@ void fmi_get_rect(FracturedModelInstance *fmi, FSRect *rect){
 }
 
 bool fmi_selectable(FracturedModelInstance *fmi){
-	if (fmi->model && fmi->locked){
+	if (fmi->state == SETTLED){
 		FSRect rect;
 		fmi_get_rect(fmi,&rect);
 		return mouse_in_rect(&rect);
@@ -255,95 +252,51 @@ bool get_mouse_cell(ivec2 cell){
 	return (cell[0] >= 0 && cell[0] <= 7 && cell[1] >= 0 && cell[1] <= 7);
 }
 
-bool move_makes_match(ivec2 src, ivec2 dst){
-	/*
-	this needs to check that the things matched with are not part of any other matches.
-	or maybe instead, unlock anything this move matches with, so that falling objects
-	can't match with any of it while the move is animating.
-	*/
-	if (!board[src[0]][src[1]].locked || !board[dst[0]][dst[1]].locked){
-		return false;
-	}
-	for (int x = 0; x < 8; x++){
-		for (int y = 0; y < 8; y++){
-			fakeboard[x][y] = board[x][y].model;
-		}
-	}
-	FracturedModel *last;
-	SWAP(last,fakeboard[src[0]][src[1]],fakeboard[dst[0]][dst[1]]);
-	int same;
-	bool contains;
-	for (int y = 0; y < 8; y++){
-		last = 0;
-		same = 0;
-		for (int x = 0; x < 8; x++){
-			FracturedModelInstance *mi = &board[x][y];
-			if (!mi->locked){
-				same = 0;
-				last = 0;
-				contains = false;
-				continue;
-			}
-			FracturedModel *m = fakeboard[x][y];
-			if (last != m){
-				same = 1;
-				last = m;
-				contains = false;
-			} else {
-				same++;
-			}
-			if ((x == src[0] && y == src[1]) || (x == dst[0] && y == dst[1])){
-				contains = true;
-			}
-			if (same == 3 && contains){
+void append_pair(int x, int y, int direction){
+	ASSERT(pairCount < COUNT(pairs));
+	pairs[pairCount].position[0] = x;
+	pairs[pairCount].position[1] = y;
+	pairs[pairCount].direction = direction;
+	pairCount++;
+}
+
+void mark(int x, int y){
+	ASSERT(markedCount < COUNT(marked));
+	marked[markedCount++] = &board[x][y];
+}
+
+bool lock_match(int x, int y){
+	//locks 1 minimal match including (x,y)
+	//returns false if no match found
+	int count = 0;
+	for (int xx = MAX(0,x-2); xx <= MIN(7,x+2); xx++){
+		if (board[xx][y].state == SETTLED && board[xx][y].model == board[x][y].model){
+			count++;
+			if (count == 3){
+				board[xx][y].state = ANIMATING;
+				board[xx-1][y].state = ANIMATING;
+				board[xx-2][y].state = ANIMATING;
 				return true;
 			}
+		} else {
+			count = 0;
 		}
 	}
-	for (int x = 0; x < 8; x++){
-		last = 0;
-		same = 0;
-		for (int y = 0; y < 8; y++){
-			FracturedModelInstance *mi = &board[x][y];
-			if (!mi->locked){
-				same = 0;
-				last = 0;
-				contains = false;
-				continue;
-			}
-			FracturedModel *m = fakeboard[x][y];
-			if (last != m){
-				same = 1;
-				last = m;
-				contains = false;
-			} else {
-				same++;
-			}
-			if ((x == src[0] && y == src[1]) || (x == dst[0] && y == dst[1])){
-				contains = true;
-			}
-			if (same == 3 && contains){
+	count = 0;
+	for (int yy = MAX(0,y-2); yy <= MIN(7,y+2); yy++){
+		if (board[x][yy].state == SETTLED && board[x][yy].model == board[x][y].model){
+			count++;
+			if (count == 3){
+				board[x][yy].state = ANIMATING;
+				board[x][yy-1].state = ANIMATING;
+				board[x][yy-1].state = ANIMATING;
 				return true;
 			}
+		} else {
+			count = 0;
 		}
 	}
 	return false;
-}
-
-void start_move(ivec2 src, ivec2 dst){
-	FracturedModelInstance 
-		*si = &board[src[0]][src[1]],
-		*di = &board[dst[0]][dst[1]];
-	si->animating = true;
-	di->animating = true;
-	if (!move.active){
-		move.active = true;
-		move.t = 0.0f;
-		ivec2_copy(src,move.src);
-		ivec2_copy(dst,move.dst);
-		return;
-	}
-	ASSERT(0 && "start_move overflowed");
 }
 
 void cleanup(void){
@@ -425,10 +378,27 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 						ivec2 dst;
 						if (
 							get_mouse_cell(dst) &&
-							ivec2_manhattan(src,dst) == 1 &&
-							move_makes_match(src,dst)
+							ivec2_manhattan(src,dst) == 1
 						){
-							start_move(src,dst);
+							FracturedModelInstance
+								*si = &board[src[0]][src[1]],
+								*di = &board[dst[0]][dst[1]];
+							if (si->state != SETTLED || di->state != SETTLED){
+								break;
+							}
+							FracturedModel *temp;
+							SWAP(temp,si->model,di->model);
+							if (lock_match(src[0],src[1]) || lock_match(dst[0],dst[1])){
+								si->state = ANIMATING;
+								di->state = ANIMATING;
+								if (!move.active){
+									move.active = true;
+									move.t = 0.0f;
+									ivec2_copy(src,move.src);
+									ivec2_copy(dst,move.dst);
+								}
+							}
+							SWAP(temp,si->model,di->model);
 						}
 						grabbedObject = 0;
 					}
@@ -466,7 +436,7 @@ void main(void){
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	gwindow = create_centered_window(1600,900,"Match Mayhem");
+	gwindow = create_centered_window(640,480,"Match Mayhem");
  
 	glfwSetCursorPosCallback(gwindow, cursor_position_callback);
 	glfwSetMouseButtonCallback(gwindow, mouse_button_callback);
@@ -545,108 +515,188 @@ void main(void){
 			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
 		}
 
-		//explode matches and refill board
-		{
-			//explode
-			/*
-			this needs to mark objects for explosion and then explode them.
-			otherwise we miss multi-matches
-			*/
-			markedCount = 0;
-			FracturedModel *last;
-			int same;
+		//explode matches:
+		//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
+		//moves do local checks and mark the 2 nearest matching objects as ANIMATING along with the moved object
+		/*
+		this needs to mark objects for explosion and then explode them.
+		otherwise we miss multi-matches
+		*/
+		markedCount = 0;
+		FracturedModel *last;
+		int same;
+		for (int y = 0; y < 8; y++){
+			same = 0;
+			last = 0;
+			for (int x = 0; x < 8; x++){
+				if (board[x][y].state != SETTLED){
+					last = 0;
+					same = 0;
+					continue;
+				}
+				FracturedModel *m = board[x][y].model;
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (last){
+					if (same == 3){
+						for (int xx = x-2; xx <= x; xx++){
+							mark(xx,y);
+						}
+					} else if (same > 3){
+						mark(x,y);
+					}
+				}
+			}
+		}
+		for (int x = 0; x < 8; x++){
+			same = 0;
+			last = 0;
 			for (int y = 0; y < 8; y++){
-				same = 0;
-				last = 0;
-				for (int x = 0; x < 8; x++){
-					FracturedModelInstance *mi = &board[x][y];
-					if (!mi->model || !mi->locked){
-						same = 0;
-						last = 0;
-						continue;
-					}
-					FracturedModel *m = board[x][y].model;
-					if (last != m){
-						same = 1;
-						last = m;
-					} else {
-						same++;
-					}
-					if (last){
-						if (same == 3){
-							for (int xx = x-2; xx <= x; xx++){
-								mark(xx,y);
-							}
-						} else if (same > 3){
-							mark(x,y);
+				if (board[x][y].state != SETTLED){
+					last = 0;
+					same = 0;
+					continue;
+				}
+				FracturedModel *m = board[x][y].model;
+				if (last != m){
+					same = 1;
+					last = m;
+				} else {
+					same++;
+				}
+				if (last){
+					if (same == 3){
+						for (int yy = y-2; yy <= y; yy++){
+							mark(x,yy);
 						}
+					} else if (same > 3){
+						mark(x,y);
 					}
 				}
 			}
-			for (int x = 0; x < 8; x++){
-				same = 0;
-				last = 0;
-				for (int y = 0; y < 8; y++){
-					FracturedModelInstance *mi = &board[x][y];
-					if (!mi->model || !mi->locked){
-						same = 0;
-						last = 0;
-						continue;
-					}
-					FracturedModel *m = board[x][y].model;
-					if (last != m){
-						same = 1;
-						last = m;
-					} else {
-						same++;
-					}
-					if (last){
-						if (same == 3){
-							for (int yy = y-2; yy <= y; yy++){
-								mark(x,yy);
-							}
-						} else if (same > 3){
-							mark(x,y);
-						}
-					}
+		}
+		for (int i = 0; i < markedCount; i++){
+			explode_object(marked[i]);
+		}
+		//detect UNPLACED:
+		bool unplacedFound = false;
+		for (int x = 0; x < 8; x++){
+			for (int y = 0; y < 8; y++){
+				if (board[x][y].state == UNPLACED){
+					unplacedFound = true;
+					goto L1;
 				}
 			}
-			for (int i = 0; i < markedCount; i++){
-				explode_cell(marked[i][0],marked[i][1]);
-			}
+		}
+		L1:;
+		if (unplacedFound){
+			//propagate UNPLACED up:
 			for (int x = 0; x < 8; x++){
-				FracturedModelInstance *mi = board[x];
-				while (mi->model){
+				FracturedModelInstance *mi = &board[x][0];
+				while (mi->state != UNPLACED){
 					mi++;
 					if (mi - board[x] >= 8){
 						goto L0;
 					}
 				}
-				for (int y = (int)(mi-board[x])+1; y < 8; y++){
-					if (board[x][y].model){
+				for (int y = (int)(mi-(&board[x][0]))+1; y < 8; y++){
+					if (board[x][y].state != UNPLACED){
 						*mi = board[x][y];
-						mi->locked = false;
+						mi->state = FALLING;
 						mi++;
-						board[x][y].model = 0;
+						board[x][y].state = UNPLACED;
 					}
 				}
 				L0:;
 			}
-			//end explode
+			//randomize UNPLACED:
 			for (int x = 0; x < 8; x++){
 				for (int y = 0; y < 8; y++){
-					fakeboard[x][y] = board[x][y].model ? board[x][y].model : models+rand_int(COUNT(models));
+					if (board[x][y].state == UNPLACED){
+						board[x][y].model = models+rand_int(COUNT(models));
+					}
 				}
 			}
+			//remove matches:
 			bool found;
 			do {
 				//need to ensure at least 1 potential match here
+				//find pairs of UNPLACED:
+				pairCount = 0;
+				for (int y = 0; y < 8; y++){
+					for (int x = 0; x < 7; x++){
+						if (
+							board[x][y].state == UNPLACED &&
+							board[x+1][y].state == UNPLACED
+						){
+							append_pair(x,y,0);
+						}
+					}
+				}
+				for (int x = 0; x < 8; x++){
+					for (int y = 0; y < 7; y++){
+						if (
+							board[x][y].state == UNPLACED &&
+							board[x][y+1].state == UNPLACED
+						){
+							append_pair(x,y,0);
+						}
+					}
+				}
+				//pick random pair and make a potential match with it:
+				{
+					ASSERT(pairCount > 0);
+					EmptyPair *p = pairs + rand_int(pairCount);
+					int x = p->position[0];
+					int y = p->position[1];
+					FracturedModel *m;
+					if (p->direction == 0){
+						//horizontal
+						if (p->position[0] < 2){
+							m = board[x+3][y].model;
+						} else if (p->position[0] < 5){
+							if (rand_int(2)){
+								m = board[x+3][y].model;
+							} else {
+								m = board[x-2][y].model;
+							}
+						} else {
+							m = board[x-2][y].model;
+						}
+						board[x+1][y].model = m;
+					} else {
+						//vertical
+						if (p->position[1] < 2){
+							m = board[x][y+3].model;
+						} else if (p->position[1] < 5){
+							if (rand_int(2)){
+								m = board[x][y+3].model;
+							} else {
+								m = board[x][y-2].model;
+							}
+						} else {
+							m = board[x][y-2].model;
+						}
+						board[x][y+1].model = m;
+					}
+					board[x][y].model = m;
+				}
+				//remove matches:
 				found = false;
 				for (int y = 0; y < 8; y++){
 					last = 0;
 					same = 0;
 					for (int x = 0; x < 8; x++){
-						FracturedModel *m = fakeboard[x][y];
+						if (board[x][y].state != UNPLACED){
+							last = 0;
+							same = 0;
+							continue;
+						}
+						FracturedModel *m = board[x][y].model;
 						if (last != m){
 							same = 1;
 							last = m;
@@ -656,7 +706,7 @@ void main(void){
 						if (same == 3){
 							int id = (int)(m-models);
 							int r = rand_int(COUNT(models)-1);
-							fakeboard[x][y] = r >= id ? models+r+1 : models+r;
+							board[x][y].model = r >= id ? models+r+1 : models+r;
 							found = true;
 						}
 					}
@@ -665,7 +715,12 @@ void main(void){
 					last = 0;
 					same = 0;
 					for (int y = 0; y < 8; y++){
-						FracturedModel *m = fakeboard[x][y];
+						if (board[x][y].state != UNPLACED){
+							last = 0;
+							same = 0;
+							continue;
+						}
+						FracturedModel *m = board[x][y].model;
 						if (last != m){
 							same = 1;
 							last = m;
@@ -675,92 +730,86 @@ void main(void){
 						if (same == 3){
 							int id = (int)(m-models);
 							int r = rand_int(COUNT(models)-1);
-							fakeboard[x][y] = r >= id ? models+r+1 : models+r;
+							board[x][y].model = r >= id ? models+r+1 : models+r;
 							found = true;
 						}
 					}
 				}
 			} while (found);
-			for (int x = 0; x < 8; x++){
-				for (int y = 0; y < 8; y++){
-					FracturedModelInstance *mi = &board[x][y];
-					if (!mi->model){
-						mi->model = fakeboard[x][y];
-						mi->position[0] = boardRect.left + x*cellWidth;
-						mi->position[1] = boardRect.top + (y+1)*cellWidth*2;
-						mi->rotationRandom = (float)rand_int(360);
-						mi->locked = false;
+		}
+		//update:
+		for (int x = 0; x < 8; x++){
+			for (int y = 0; y < 8; y++){
+				FracturedModelInstance *mi = &board[x][y];
+				if (mi->state == UNPLACED){
+					mi->position[0] = boardRect.left + x*cellWidth;
+					mi->position[1] = boardRect.top + (y+1)*cellWidth*2;
+					mi->rotationRandom = (float)rand_int(360);
+					mi->yVelocity = 0.0f;
+					mi->state = FALLING;
+				} else if (mi->state == FALLING){
+					mi->yVelocity += -9.8f * dt;
+					mi->position[1] += mi->yVelocity * dt;
+					if (y){
+						float top = board[x][y-1].position[1] + cellWidth - 0.001f;
+						if (mi->position[1] < top){
+							mi->position[1] = top;
+							mi->yVelocity = 0.0f;
+						}
+					}
+					float rest = boardRect.bottom+y*cellWidth;
+					if (mi->position[1] < rest){
+						mi->position[1] = rest;
 						mi->yVelocity = 0.0f;
+						mi->state = SETTLED;
 					}
 				}
 			}
 		}
-
-		//update objects
-		{
-			for (int x = 0; x < 8; x++){
-				for (int y = 0; y < 8; y++){
-					FracturedModelInstance *mi = &board[x][y];
-					if (mi->model && !mi->locked){
-						mi->yVelocity += -9.8f * dt;
-						mi->position[1] += mi->yVelocity * dt;
-						if (y){
-							float top = board[x][y-1].position[1] + cellWidth - 0.001f;
-							if (mi->position[1] < top){
-								mi->position[1] = top;
-								mi->yVelocity = 0.0f;
-							}
-						}
-						float rest = boardRect.bottom+y*cellWidth;
-						if (mi->position[1] < rest){
-							mi->position[1] = rest;
-							mi->locked = true;
-							mi->yVelocity = 0.0f;
+		//animate move:
+		if (move.active){
+			FracturedModelInstance
+				*si = &board[move.src[0]][move.src[1]],
+				*di = &board[move.dst[0]][move.dst[1]];
+			vec2 spos = {
+				boardRect.left + move.src[0]*cellWidth,
+				boardRect.bottom + move.src[1]*cellWidth
+			};
+			vec2 dpos = {
+				boardRect.left + move.dst[0]*cellWidth,
+				boardRect.bottom + move.dst[1]*cellWidth
+			};
+			move.t += 5*dt;
+			if (move.t >= 1.0f){
+				move.active = false;
+				for (int x = 0; x < 8; x++){
+					for (int y = 0; y < 8; y++){
+						if (board[x][y].state == ANIMATING){
+							board[x][y].state = SETTLED;
 						}
 					}
 				}
-			}
-
-			//animate move:
-			if (move.active){
-				FracturedModelInstance
-					*si = &board[move.src[0]][move.src[1]],
-					*di = &board[move.dst[0]][move.dst[1]];
-				vec2 spos = {
-					boardRect.left + move.src[0]*cellWidth,
-					boardRect.bottom + move.src[1]*cellWidth
-				};
-				vec2 dpos = {
-					boardRect.left + move.dst[0]*cellWidth,
-					boardRect.bottom + move.dst[1]*cellWidth
-				};
-				move.t += 5*dt;
-				if (move.t >= 1.0f){
-					move.active = false;
-					si->animating = false;
-					di->animating = false;
-					vec2_copy(dpos,si->position);
-					vec2_copy(spos,di->position);
-					FracturedModelInstance temp;
-					SWAP(temp,*si,*di);
-					continue;
-				}
+				FracturedModelInstance temp;
+				SWAP(temp,*si,*di);
+				vec2_copy(spos,si->position);
+				vec2_copy(dpos,di->position);
+			} else {
 				vec2_lerp(spos,dpos,move.t,si->position);
 				vec2_lerp(dpos,spos,move.t,di->position);
 			}
-
-			for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
-				if (f->model){
-					f->velocity[1] -= 9.8f * dt;
-					vec2 dp;
-					vec2_scale(f->velocity,dt,dp);
-					vec2_add(f->position,dp,f->position);
-					if (f->position[0] < -1.0f || 
-						f->position[0] > 16.0f ||
-						f->position[1] < -1.0f ||
-						f->position[1] > 9.0f){
-						f->model = 0;
-					}
+		}
+		//animate fragments:
+		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+			if (f->model){
+				f->velocity[1] -= 9.8f * dt;
+				vec2 dp;
+				vec2_scale(f->velocity,dt,dp);
+				vec2_add(f->position,dp,f->position);
+				if (f->position[0] < -1.0f || 
+					f->position[0] > 16.0f ||
+					f->position[1] < -1.0f ||
+					f->position[1] > 9.0f){
+					f->model = 0;
 				}
 			}
 		}
