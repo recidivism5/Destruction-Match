@@ -81,6 +81,10 @@ void init_sound_sources(void){
     alGenSources(COUNT(sources),sources);
 }
 
+void delete_sound_sources(void){
+    alDeleteSources(COUNT(sources),sources);
+}
+
 void play_sound(ALuint id){
     for (ALuint *s = sources; s < sources+COUNT(sources); s++){
         ALint state;

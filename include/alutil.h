@@ -14,4 +14,6 @@ ALuint load_sound(char *name);
 
 void init_sound_sources(void);
 
+void delete_sound_sources(void);
+
 void play_sound(ALuint id);

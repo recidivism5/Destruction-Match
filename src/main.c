@@ -302,6 +302,8 @@ bool lock_match(int x, int y){
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
+	delete_sound_sources();
+	alDeleteBuffers(1,&bruh);
 	alcMakeContextCurrent(0);
 	alcDestroyContext(alcContext);
 	alcCloseDevice(alcDevice);
