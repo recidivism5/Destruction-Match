@@ -768,8 +768,15 @@ void main(void){
 			} while (found);
 		}
 		//update:
+		float unplacedInc = cellWidth*1.2f;
 		for (int x = 0; x < 8; x++){
 			float unplacedY = 9.1f;
+			for (int y = 0; y < 8; y++){
+				float top = board[x][y].position[1]+unplacedInc;
+				if (top > unplacedY){
+					unplacedY = top;
+				}
+			}
 			for (int y = 0; y < 8; y++){
 				FracturedModelInstance *mi = &board[x][y];
 				if (mi->state == UNPLACED){
@@ -778,7 +785,7 @@ void main(void){
 					mi->rotationRandom = (float)rand_int(360);
 					mi->yVelocity = 0.0f;
 					mi->state = FALLING;
-					unplacedY += cellWidth*1.2f;
+					unplacedY += unplacedInc;
 				} else if (mi->state == FALLING){
 					mi->yVelocity += -9.8f * dt;
 					if (mi->yVelocity < -9.8f){
