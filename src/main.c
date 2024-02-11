@@ -89,7 +89,7 @@ Fragment fragments[1024];
 
 Texture beachBackground, checker, frame;
 
-FracturedModel models[5];
+FracturedModel models[6];
 
 FracturedModelInstance *grabbedObject;
 
@@ -468,6 +468,7 @@ void main(void){
 	load_fractured_model(models+2,"campaigns/juicebar/models/orange");
 	load_fractured_model(models+3,"campaigns/juicebar/models/pineapple");
 	load_fractured_model(models+4,"campaigns/juicebar/models/watermelon");
+	load_fractured_model(models+5,"campaigns/juicebar/models/grapes");
 
 	bruh = load_sound("bruh");
 
