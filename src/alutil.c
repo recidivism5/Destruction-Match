@@ -90,7 +90,7 @@ void play_sound(ALuint id){
         ALint state;
         alGetSourcei(*s,AL_SOURCE_STATE,&state);
         if (state != AL_PLAYING){
-            alSourcef(*s,AL_PITCH,1.0f);
+            alSourcef(*s,AL_PITCH,1.0f+((rand_int(2) ? -1 : 1) * (float)rand_int(50)/100.0f));
             alSourcef(*s,AL_GAIN,1.0f);
             alSource3f(*s,AL_POSITION,0.0f,0.0f,0.0f);
             alSource3f(*s,AL_VELOCITY,0.0f,0.0f,0.0f);

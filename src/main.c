@@ -89,7 +89,7 @@ Fragment fragments[1024];
 
 Texture beachBackground, checker, frame;
 
-FracturedModel models[3];
+FracturedModel models[4];
 
 FracturedModelInstance *grabbedObject;
 
@@ -466,6 +466,7 @@ void main(void){
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
 	load_fractured_model(models+2,"campaigns/juicebar/models/orange");
+	load_fractured_model(models+3,"campaigns/juicebar/models/pineapple");
 
 	bruh = load_sound("bruh");
 
@@ -753,6 +754,9 @@ void main(void){
 					mi->state = FALLING;
 				} else if (mi->state == FALLING){
 					mi->yVelocity += -9.8f * dt;
+					if (mi->yVelocity < -9.8f){
+						mi->yVelocity = -9.8f;
+					}
 					mi->position[1] += mi->yVelocity * dt;
 					if (y){
 						float top = board[x][y-1].position[1] + cellWidth - 0.001f;
@@ -917,8 +921,11 @@ void main(void){
 						glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->normal);
 						glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->texcoord);
 
-						glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[0].offset,mi->model->objects[0].vertexOffsetCounts[0].count);
-						
+						for (int i = 0; i < mi->model->materialCount; i++){
+							glBindTexture(GL_TEXTURE_2D,mi->model->materials[i].textureId);
+							glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[i].offset,mi->model->objects[0].vertexOffsetCounts[i].count);
+						}
+
 						glStencilFunc(GL_NOTEQUAL,1,0xff);
 						glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
 						glDisable(GL_TEXTURE_2D);
@@ -930,7 +937,11 @@ void main(void){
 						} else {
 							glColor4f(0,0,0,1);
 						}
-						glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[0].offset,mi->model->objects[0].vertexOffsetCounts[0].count);
+						
+						for (int i = 0; i < mi->model->materialCount; i++){
+							glDrawArrays(GL_TRIANGLES,mi->model->objects[0].vertexOffsetCounts[i].offset,mi->model->objects[0].vertexOffsetCounts[i].count);
+						}
+
 						glEnable(GL_TEXTURE_2D);
 						glColor4f(1,1,1,1);
 						glDisable(GL_STENCIL_TEST);
