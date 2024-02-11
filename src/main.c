@@ -1,5 +1,6 @@
 #include <glutil.h>
 #include <alutil.h>
+#include <perlin_noise.h>
 
 ////////////TYPES:
 
@@ -768,14 +769,16 @@ void main(void){
 		}
 		//update:
 		for (int x = 0; x < 8; x++){
+			float unplacedY = 9.1f;
 			for (int y = 0; y < 8; y++){
 				FracturedModelInstance *mi = &board[x][y];
 				if (mi->state == UNPLACED){
 					mi->position[0] = boardRect.left + x*cellWidth;
-					mi->position[1] = boardRect.top + (y+1)*cellWidth*2;
+					mi->position[1] = unplacedY;
 					mi->rotationRandom = (float)rand_int(360);
 					mi->yVelocity = 0.0f;
 					mi->state = FALLING;
+					unplacedY += cellWidth*1.2f;
 				} else if (mi->state == FALLING){
 					mi->yVelocity += -9.8f * dt;
 					if (mi->yVelocity < -9.8f){
@@ -891,6 +894,25 @@ void main(void){
 			glTexCoord2f(1,1); glVertex3f(fcenter[0]+fhw,fcenter[1]+fhw,2);
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
+
+			float meterHw = 1.0f/3.0f;
+			float meterLeft = 16.0f/3.0f-meterHw;
+			float samples[8];
+			for (int i = 0; i < COUNT(samples); i++){
+				samples[i] = 0.125f*perlin_noise_1d(t0/2.0+(float)i/8.0f);
+			}
+			float barWidth = meterHw * 2.0f / (COUNT(samples)-1);
+
+			glDisable(GL_TEXTURE_2D);
+			glBegin(GL_QUADS);
+			for (int i = 0; i < COUNT(samples)-1; i++){
+				glColor4f(0.5f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
+				glColor4f(0.5f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
+				glColor4f(1.0f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.top+samples[i+1],2);
+				glColor4f(1.0f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth,boardRect.top+samples[i],2);
+			}
+			glEnd();
+			glEnable(GL_TEXTURE_2D);
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
