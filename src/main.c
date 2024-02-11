@@ -89,7 +89,7 @@ Fragment fragments[1024];
 
 Texture beachBackground, checker, frame;
 
-FracturedModel models[4];
+FracturedModel models[5];
 
 FracturedModelInstance *grabbedObject;
 
@@ -467,6 +467,7 @@ void main(void){
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
 	load_fractured_model(models+2,"campaigns/juicebar/models/orange");
 	load_fractured_model(models+3,"campaigns/juicebar/models/pineapple");
+	load_fractured_model(models+4,"campaigns/juicebar/models/watermelon");
 
 	bruh = load_sound("bruh");
 
@@ -653,6 +654,7 @@ void main(void){
 					}
 				}
 				//pick random pair and make a potential match with it:
+				//TODO: need to only do this if there isn't a potential match on the board already
 				{
 					ASSERT(pairCount > 0);
 					EmptyPair *p = pairs + rand_int(pairCount);
