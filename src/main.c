@@ -655,6 +655,26 @@ void main(void){
 				}
 				//pick random pair and make a potential match with it:
 				//TODO: need to only do this if there isn't a potential match on the board already
+				for (int x = 0; x < 8; x++){
+					for (int y = 0; y <= 4; y++){
+						if (
+							(board[x][y].model == board[x][y+1].model && board[x][y].model == board[x][y+3].model) ||
+							(board[x][y].model == board[x][y+2].model && board[x][y].model == board[x][y+3].model)
+						){
+							goto L2;
+						}
+					}
+				}
+				for (int y = 0; y < 8; y++){
+					for (int x = 0; x <= 4; x++){
+						if (
+							(board[x][y].model == board[x+1][y].model && board[x][y].model == board[x+3][y].model) ||
+							(board[x][y].model == board[x+2][y].model && board[x][y].model == board[x+3][y].model)
+						){
+							goto L2;
+						}
+					}
+				}
 				{
 					ASSERT(pairCount > 0);
 					EmptyPair *p = pairs + rand_int(pairCount);
@@ -692,6 +712,7 @@ void main(void){
 					}
 					board[x][y].model = m;
 				}
+				L2:;
 				//remove matches:
 				found = false;
 				for (int y = 0; y < 8; y++){
