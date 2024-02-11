@@ -648,7 +648,7 @@ void main(void){
 							board[x][y].state == UNPLACED &&
 							board[x][y+1].state == UNPLACED
 						){
-							append_pair(x,y,0);
+							append_pair(x,y,1);
 						}
 					}
 				}
