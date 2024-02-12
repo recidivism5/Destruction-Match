@@ -109,6 +109,10 @@ vec2 bubbles[32];
 double t0,t1;
 float dt;
 
+float timeRemaining;
+int targetItems;
+int totalItems;
+
 ////////////////END GLOBALS
 
 void init_bubbles(){
@@ -328,8 +332,8 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glDisable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
 	for (int i = 0; i < COUNT(samples)-1; i++){
-		glColor4f(0.5f*r,0.5f*g,0.5f*b,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
-		glColor4f(0.5f*r,0.5f*g,0.5f*b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
+		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
+		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
 		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,top+samples[i+1],2);
 		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth,top+samples[i],2);
 	}
@@ -512,7 +516,7 @@ void main(void){
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 	load_texture(&bubbleTexture,"textures/bubble.png",true);
-	load_texture(&tubeFrontTexture,"textures/tube_front7.png",true);
+	load_texture(&tubeFrontTexture,"textures/tube_front8.png",true);
 
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
@@ -536,6 +540,10 @@ void main(void){
 
 	init_bubbles();
 
+	timeRemaining = 1.0f;
+	targetItems = 100;
+	totalItems = 0;
+
 	//Loop:
 
 	t0 = glfwGetTime();
@@ -545,6 +553,8 @@ void main(void){
 		t1 = glfwGetTime();
 		dt = (float)(t1 - t0);
 		t0 = t1;
+
+		timeRemaining -= dt * 1.0f / 60;
 
 		//dt *= 0.125f;
 
@@ -954,7 +964,7 @@ void main(void){
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
 
-			draw_meter(16.0f/3.0f + 1.0f/3.0f,1.0f,0.0f,0.0f,0.7f);
+			draw_meter(16.0f/3.0f,1.0f,0.0f,0.0f,timeRemaining);
 			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,0.5f);
 		}
 
