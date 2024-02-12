@@ -106,6 +106,9 @@ Move move;
 
 vec2 bubbles[32];
 
+double t0,t1;
+float dt;
+
 ////////////////END GLOBALS
 
 void init_bubbles(){
@@ -311,6 +314,40 @@ bool lock_match(int x, int y){
 	return false;
 }
 
+void draw_meter(float x, float r, float g, float b, float level){
+	float meterHw = 1.0f/3.0f;
+	float meterLeft = x-meterHw;
+	float samples[8];
+	for (int i = 0; i < COUNT(samples); i++){
+		samples[i] = 0.125f*perlin_noise_1d((float)t0/2.0f+(float)i/8.0f);
+	}
+	float barWidth = meterHw * 2.0f / (COUNT(samples)-1);
+
+	float top = boardRect.bottom + level*(boardRect.top-boardRect.bottom);
+
+	glDisable(GL_TEXTURE_2D);
+	glBegin(GL_QUADS);
+	for (int i = 0; i < COUNT(samples)-1; i++){
+		glColor4f(0.5f*r,0.5f*g,0.5f*b,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
+		glColor4f(0.5f*r,0.5f*g,0.5f*b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
+		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,top+samples[i+1],2);
+		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth,top+samples[i],2);
+	}
+	glEnd();
+	glEnable(GL_TEXTURE_2D);
+
+	glColor4f(1.0f,1.0f,1.0f,1.0f);
+
+	float tubeHw = 3.4f*meterHw/2;
+	glBindTexture(GL_TEXTURE_2D,tubeFrontTexture.id);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0.0f,0.0f); glVertex3f(x-tubeHw,boardRect.bottom-0.35f,4);
+	glTexCoord2f(1.0f,0.0f); glVertex3f(x+tubeHw,boardRect.bottom-0.35f,4);
+	glTexCoord2f(1.0f,1.0f); glVertex3f(x+tubeHw,boardRect.top,4);
+	glTexCoord2f(0.0f,1.0f); glVertex3f(x-tubeHw,boardRect.top,4);
+	glEnd();
+}
+
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
@@ -501,12 +538,12 @@ void main(void){
 
 	//Loop:
 
-	double t0 = glfwGetTime();
+	t0 = glfwGetTime();
  
 	while (!glfwWindowShouldClose(gwindow)){
 		/////////// Update:
-		double t1 = glfwGetTime();
-		float dt = (float)(t1 - t0);
+		t1 = glfwGetTime();
+		dt = (float)(t1 - t0);
 		t0 = t1;
 
 		//dt *= 0.125f;
@@ -917,56 +954,8 @@ void main(void){
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
 
-			float meterX = 16.0f/3.0f;
-			float meterHw = 1.0f/3.0f;
-			float meterLeft = meterX-meterHw;
-			float samples[8];
-			for (int i = 0; i < COUNT(samples); i++){
-				samples[i] = 0.125f*perlin_noise_1d((float)t0/2.0f+(float)i/8.0f);
-			}
-			float barWidth = meterHw * 2.0f / (COUNT(samples)-1);
-
-			glDisable(GL_TEXTURE_2D);
-			glBegin(GL_QUADS);
-			for (int i = 0; i < COUNT(samples)-1; i++){
-				glColor4f(0.5f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
-				glColor4f(0.5f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
-				glColor4f(1.0f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.top+samples[i+1],2);
-				glColor4f(1.0f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.top+samples[i],2);
-			}
-			glEnd();
-			glEnable(GL_TEXTURE_2D);
-
-			glEnable(GL_SCISSOR_TEST);
-			glScissor(meterLeft * screen.width/16.0f + screen.x,boardRect.bottom*screen.height/9.0f + screen.y,2*meterHw*clientWidth/16.0f,(boardRect.top-boardRect.bottom)*clientHeight/9.0f);
-			glColor4f(1.0f,1.0f,1.0f,1.0f);
-			glBindTexture(GL_TEXTURE_2D,bubbleTexture.id);
-			glBegin(GL_QUADS);
-			for (int i = 0; i < COUNT(bubbles); i++){
-				bubbles[i][0] += 0.6f*dt;
-				bubbles[i][1] += 0.6f*dt;
-				if (bubbles[i][0] > 16.0f || bubbles[i][1] > 9.0f){
-					bubbles[i][0] = rand_float(meterLeft-2*meterHw,meterLeft-0.25f);
-					bubbles[i][1] = rand_float(boardRect.bottom,boardRect.top);
-				}
-				float x = bubbles[i][0];
-				float y = bubbles[i][1];
-				glTexCoord2f(0.0f,0.0f); glVertex3f(x,y,3);
-				glTexCoord2f(1.0f,0.0f); glVertex3f(x+0.25f,y,3);
-				glTexCoord2f(1.0f,1.0f); glVertex3f(x+0.25f,y+0.25f,3);
-				glTexCoord2f(0.0f,1.0f); glVertex3f(x,y+0.25f,3);
-			}
-			glEnd();
-			glDisable(GL_SCISSOR_TEST);
-
-			float tubeHw = 3.4f*meterHw/2;
-			glBindTexture(GL_TEXTURE_2D,tubeFrontTexture.id);
-			glBegin(GL_QUADS);
-			glTexCoord2f(0.0f,0.0f); glVertex3f(meterX-tubeHw,boardRect.bottom-0.35f,4);
-			glTexCoord2f(1.0f,0.0f); glVertex3f(meterX+tubeHw,boardRect.bottom-0.35f,4);
-			glTexCoord2f(1.0f,1.0f); glVertex3f(meterX+tubeHw,boardRect.top,4);
-			glTexCoord2f(0.0f,1.0f); glVertex3f(meterX-tubeHw,boardRect.top,4);
-			glEnd();
+			draw_meter(16.0f/3.0f + 1.0f/3.0f,1.0f,0.0f,0.0f,0.7f);
+			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,0.5f);
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
