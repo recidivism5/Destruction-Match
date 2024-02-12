@@ -90,7 +90,7 @@ FracturedModelInstance board[8][8];//by column,row
 
 Fragment fragments[1024];
 
-Texture beachBackground, checker, frame, bubbleTexture;
+Texture beachBackground, checker, frame, bubbleTexture, tubeFrontTexture;
 
 FracturedModel models[6];
 
@@ -475,6 +475,7 @@ void main(void){
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 	load_texture(&bubbleTexture,"textures/bubble.png",true);
+	load_texture(&tubeFrontTexture,"textures/tube_front7.png",true);
 
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
@@ -874,8 +875,6 @@ void main(void){
 
 		////////////// Render:
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
-		glScissor((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
-		glEnable(GL_SCISSOR_TEST);
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -918,8 +917,9 @@ void main(void){
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
 
+			float meterX = 16.0f/3.0f;
 			float meterHw = 1.0f/3.0f;
-			float meterLeft = 16.0f/3.0f-meterHw;
+			float meterLeft = meterX-meterHw;
 			float samples[8];
 			for (int i = 0; i < COUNT(samples); i++){
 				samples[i] = 0.125f*perlin_noise_1d((float)t0/2.0f+(float)i/8.0f);
@@ -929,14 +929,16 @@ void main(void){
 			glDisable(GL_TEXTURE_2D);
 			glBegin(GL_QUADS);
 			for (int i = 0; i < COUNT(samples)-1; i++){
-				glColor4f(0.5f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
-				glColor4f(0.5f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
-				glColor4f(1.0f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.top+samples[i+1],2);
-				glColor4f(1.0f,0.0f,0.0f,0.85f); glVertex3f(meterLeft+i*barWidth,boardRect.top+samples[i],2);
+				glColor4f(0.5f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
+				glColor4f(0.5f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
+				glColor4f(1.0f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.top+samples[i+1],2);
+				glColor4f(1.0f,0.0f,0.0f,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.top+samples[i],2);
 			}
 			glEnd();
 			glEnable(GL_TEXTURE_2D);
 
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(meterLeft * screen.width/16.0f + screen.x,boardRect.bottom*screen.height/9.0f + screen.y,2*meterHw*clientWidth/16.0f,(boardRect.top-boardRect.bottom)*clientHeight/9.0f);
 			glColor4f(1.0f,1.0f,1.0f,1.0f);
 			glBindTexture(GL_TEXTURE_2D,bubbleTexture.id);
 			glBegin(GL_QUADS);
@@ -955,9 +957,22 @@ void main(void){
 				glTexCoord2f(0.0f,1.0f); glVertex3f(x,y+0.25f,3);
 			}
 			glEnd();
+			glDisable(GL_SCISSOR_TEST);
+
+			float tubeHw = 3.4f*meterHw/2;
+			glBindTexture(GL_TEXTURE_2D,tubeFrontTexture.id);
+			glBegin(GL_QUADS);
+			glTexCoord2f(0.0f,0.0f); glVertex3f(meterX-tubeHw,boardRect.bottom-0.35f,4);
+			glTexCoord2f(1.0f,0.0f); glVertex3f(meterX+tubeHw,boardRect.bottom-0.35f,4);
+			glTexCoord2f(1.0f,1.0f); glVertex3f(meterX+tubeHw,boardRect.top,4);
+			glTexCoord2f(0.0f,1.0f); glVertex3f(meterX-tubeHw,boardRect.top,4);
+			glEnd();
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
+
+		glEnable(GL_SCISSOR_TEST);
+		glScissor((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 
 		{
 			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
