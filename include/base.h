@@ -69,6 +69,8 @@ where min >= 0 and max >= min.
 */
 int rand_int_range(int min, int max);
 
+float rand_float(float min, float max);
+
 /*
 fnv_1a
 Fowler-Noll-Vo hash function. https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function

@@ -88,7 +88,7 @@ FracturedModelInstance board[8][8];//by column,row
 
 Fragment fragments[1024];
 
-Texture beachBackground, checker, frame;
+Texture beachBackground, checker, frame, bubbleTexture;
 
 FracturedModel models[6];
 
@@ -102,7 +102,16 @@ int markedCount;
 
 Move move;
 
+vec2 bubbles[32];
+
 ////////////////END GLOBALS
+
+void init_bubbles(){
+	for (int i = 0; i < COUNT(bubbles); i++){
+		bubbles[i][0] = rand_float(0.0f,16.0f);
+		bubbles[i][1] = rand_float(0.0f,9.0f);
+	}
+}
 
 void load_fractured_model(FracturedModel *model, char *name){
 	char *path = local_path_to_absolute("res/%s.fmf",name);
@@ -463,6 +472,7 @@ void main(void){
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
+	load_texture(&bubbleTexture,"textures/bubble.png",true);
 
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
@@ -483,6 +493,8 @@ void main(void){
 	boardRect.bottom = center[1]-hw;
 	boardRect.top = center[1]+hw;
 	vec2 fcenter = {center[0]-hw*0.014f,center[1]+hw*0.014f};
+
+	init_bubbles();
 
 	//Loop:
 
@@ -657,6 +669,7 @@ void main(void){
 				}
 				//pick random pair and make a potential match with it:
 				//TODO: need to only do this if there isn't a potential match on the board already
+				//TODO: this only checks inline matches
 				for (int x = 0; x < 8; x++){
 					for (int y = 0; y <= 4; y++){
 						if (
@@ -678,6 +691,7 @@ void main(void){
 					}
 				}
 				{
+					//TODO: this only makes inline matches, it should make other types of matches too.
 					ASSERT(pairCount > 0);
 					EmptyPair *p = pairs + rand_int(pairCount);
 					int x = p->position[0];
@@ -906,7 +920,7 @@ void main(void){
 			float meterLeft = 16.0f/3.0f-meterHw;
 			float samples[8];
 			for (int i = 0; i < COUNT(samples); i++){
-				samples[i] = 0.125f*perlin_noise_1d(t0/2.0+(float)i/8.0f);
+				samples[i] = 0.125f*perlin_noise_1d((float)t0/2.0f+(float)i/8.0f);
 			}
 			float barWidth = meterHw * 2.0f / (COUNT(samples)-1);
 
@@ -920,6 +934,25 @@ void main(void){
 			}
 			glEnd();
 			glEnable(GL_TEXTURE_2D);
+
+			glColor4f(1.0f,1.0f,1.0f,1.0f);
+			glBindTexture(GL_TEXTURE_2D,bubbleTexture.id);
+			glBegin(GL_QUADS);
+			for (int i = 0; i < COUNT(bubbles); i++){
+				bubbles[i][0] += 0.6f*dt;
+				bubbles[i][1] += 0.6f*dt;
+				if (bubbles[i][0] > 16.0f || bubbles[i][1] > 9.0f){
+					bubbles[i][0] = rand_float(meterLeft-2*meterHw,meterLeft-0.25f);
+					bubbles[i][1] = rand_float(boardRect.bottom,boardRect.top);
+				}
+				float x = bubbles[i][0];
+				float y = bubbles[i][1];
+				glTexCoord2f(0.0f,0.0f); glVertex3f(x,y,3);
+				glTexCoord2f(1.0f,0.0f); glVertex3f(x+0.25f,y,3);
+				glTexCoord2f(1.0f,1.0f); glVertex3f(x+0.25f,y+0.25f,3);
+				glTexCoord2f(0.0f,1.0f); glVertex3f(x,y+0.25f,3);
+			}
+			glEnd();
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
