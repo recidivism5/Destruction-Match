@@ -241,6 +241,14 @@ void explode_object(FracturedModelInstance *object){
 				object->rotationRandom
 			);
 		}
+		totalItems++;
+		if (totalItems > targetItems){
+			totalItems = targetItems;
+		}
+		timeRemaining += 0.005f;
+		if (timeRemaining > 1.0f){
+			timeRemaining = 1.0f;
+		}
 		object->state = UNPLACED;
 	}
 }
@@ -332,10 +340,10 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glDisable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
 	for (int i = 0; i < COUNT(samples)-1; i++){
-		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,2);
-		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,2);
-		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,top+samples[i+1],2);
-		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth,top+samples[i],2);
+		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth,boardRect.bottom,3);
+		glColor4f(0.75f*r,0.75f*g,0.75f*b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,boardRect.bottom,3);
+		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth+barWidth,top+samples[i+1],3);
+		glColor4f(r,g,b,0.95f); glVertex3f(meterLeft+i*barWidth,top+samples[i],3);
 	}
 	glEnd();
 	glEnable(GL_TEXTURE_2D);
@@ -510,7 +518,7 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	gen_font_atlas(&font,"Nunito-Regular",36);
+	gen_font_atlas(&font,"Nunito-Regular",160);
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
@@ -965,7 +973,16 @@ void main(void){
 			glEnd();
 
 			draw_meter(16.0f/3.0f,1.0f,0.0f,0.0f,timeRemaining);
-			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,0.5f);
+			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
+
+			glBindTexture(GL_TEXTURE_2D,font.id);
+			stbtt_bakedchar *bc = font.bakedChars+32;
+			glBegin(GL_QUADS);
+			glTexCoord2f((float)bc->x0/font.width,(float)bc->y1/font.width); glVertex3f(0,0,5);
+			glTexCoord2f((float)bc->x1/font.width,(float)bc->y1/font.width); glVertex3f(1,0,5);
+			glTexCoord2f((float)bc->x1/font.width,(float)bc->y0/font.width); glVertex3f(1,1,5);
+			glTexCoord2f((float)bc->x0/font.width,(float)bc->y0/font.width); glVertex3f(0,1,5);
+			glEnd();
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
