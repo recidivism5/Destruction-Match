@@ -70,6 +70,8 @@ typedef struct {
 
 ////////////////GLOBALS:
 
+#define GRAVITY (-2.0f*9.8f)
+
 GLFWwindow *gwindow;
 ALCdevice *alcDevice;
 ALCcontext *alcContext;
@@ -226,8 +228,8 @@ void explode_object(FracturedModelInstance *object){
 				fo,
 				object->position,
 				(vec2){
-					(float)((rand_int(2) ? -1 : 1) * rand_int_range(5,10)),
-					(float)(rand_int_range(5,10))
+					rand_float(-10,10),
+					rand_float(5,10)
 				},
 				object->rotationRandom
 			);
@@ -801,7 +803,7 @@ void main(void){
 					mi->state = FALLING;
 					unplacedY += unplacedInc;
 				} else if (mi->state == FALLING){
-					mi->yVelocity += -9.8f * dt;
+					mi->yVelocity += GRAVITY * dt;
 					if (mi->yVelocity < -9.8f){
 						mi->yVelocity = -9.8f;
 					}
@@ -857,7 +859,7 @@ void main(void){
 		//animate fragments:
 		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
 			if (f->model){
-				f->velocity[1] -= 9.8f * dt;
+				f->velocity[1] += GRAVITY * dt;
 				vec2 dp;
 				vec2_scale(f->velocity,dt,dp);
 				vec2_add(f->position,dp,f->position);
@@ -958,8 +960,6 @@ void main(void){
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		{
-			project_perspective(25.0,1.0,0.01,1000.0);
-
 			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
 			GLfloat mat_shininess[] = { 50.0 };
 			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
@@ -981,16 +981,11 @@ void main(void){
 					if (mi->model){
 						FSRect rect;
 						fmi_get_rect(mi,&rect);
-						sub_viewport(
-							rect.x,
-							rect.y,
-							rect.width,
-							rect.height
-						);
 
 						glLoadIdentity();
-						glTranslated(0,0,-2.6);
+						glTranslated(rect.x+0.5f*rect.width,rect.y+0.5f*rect.height,10);
 						glRotated(t0*120+mi->rotationRandom,0,1,0);
+						glScaled(0.75f,0.75f,0.75f);
 
 						glBindTexture(GL_TEXTURE_2D,mi->model->materials[0].textureId);
 
@@ -1043,16 +1038,11 @@ void main(void){
 				if (f->model){
 					FSRect rect;
 					get_rect(f->position,&rect);
-					sub_viewport(
-						rect.x,
-						rect.y,
-						rect.width,
-						rect.height
-					);
-
+					
 					glLoadIdentity();
-					glTranslated(0,0,-2.6);
+					glTranslated(rect.x+0.5f*rect.width,rect.y+0.5f*rect.height,10);
 					glRotated(t0*120+f->rotationRandom,0,1,0);
+					glScaled(0.75f,0.75f,0.75f);
 
 					glEnable(GL_LIGHTING);
 
