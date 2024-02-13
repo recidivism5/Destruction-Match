@@ -115,7 +115,29 @@ int totalItems;
 
 float fontScale;
 
+#define FONT_HEIGHT 400
+
+enum GameState {
+	ON_MENU,
+	PLAYING,
+};
+
+enum GameState gameState = ON_MENU;
+
 ////////////////END GLOBALS
+
+void draw_circle(float x, float y, float z, float radius, int vertices){
+	glBegin(GL_TRIANGLE_FAN);
+	float c = 2.0f*(float)M_PI/vertices;
+	float t = 0.0f;
+	glVertex3f(x,y,z);
+	for (int i = 0; i < vertices; i++){
+		glVertex3f(x+radius*cosf(t),y+radius*sinf(t),z);
+		t += c;
+	}
+	glVertex3f(x+radius,y,z);
+	glEnd();
+}
 
 void init_bubbles(){
 	for (int i = 0; i < COUNT(bubbles); i++){
@@ -362,6 +384,10 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glEnd();
 }
 
+void set_font_scale(float scale){
+	fontScale = scale / FONT_HEIGHT;
+}
+
 void draw_text(float x, float y, float z, char *text){
 	glBegin(GL_QUADS);
 	while (*text){
@@ -548,7 +574,7 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	gen_font_atlas(&font,"Nunito-Regular",400);
+	gen_font_atlas(&font,"Nunito-Regular",FONT_HEIGHT);
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
@@ -620,346 +646,8 @@ void main(void){
 			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
 		}
 
-		//explode matches:
-		//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
-		//moves do local checks and mark the 2 nearest matching objects as ANIMATING along with the moved object
-		/*
-		this needs to mark objects for explosion and then explode them.
-		otherwise we miss multi-matches
-		*/
-		markedCount = 0;
-		FracturedModel *last;
-		int same;
-		for (int y = 0; y < 8; y++){
-			same = 0;
-			last = 0;
-			for (int x = 0; x < 8; x++){
-				if (board[x][y].state != SETTLED){
-					last = 0;
-					same = 0;
-					continue;
-				}
-				FracturedModel *m = board[x][y].model;
-				if (last != m){
-					same = 1;
-					last = m;
-				} else {
-					same++;
-				}
-				if (last){
-					if (same == 3){
-						for (int xx = x-2; xx <= x; xx++){
-							mark(xx,y);
-						}
-					} else if (same > 3){
-						mark(x,y);
-					}
-				}
-			}
-		}
-		for (int x = 0; x < 8; x++){
-			same = 0;
-			last = 0;
-			for (int y = 0; y < 8; y++){
-				if (board[x][y].state != SETTLED){
-					last = 0;
-					same = 0;
-					continue;
-				}
-				FracturedModel *m = board[x][y].model;
-				if (last != m){
-					same = 1;
-					last = m;
-				} else {
-					same++;
-				}
-				if (last){
-					if (same == 3){
-						for (int yy = y-2; yy <= y; yy++){
-							mark(x,yy);
-						}
-					} else if (same > 3){
-						mark(x,y);
-					}
-				}
-			}
-		}
-		if (markedCount){
-			play_sound(bruh);
-		}
-		for (int i = 0; i < markedCount; i++){
-			explode_object(marked[i]);
-		}
-		//detect UNPLACED:
-		bool unplacedFound = false;
-		for (int x = 0; x < 8; x++){
-			for (int y = 0; y < 8; y++){
-				if (board[x][y].state == UNPLACED){
-					unplacedFound = true;
-					goto L1;
-				}
-			}
-		}
-		L1:;
-		if (unplacedFound){
-			//propagate UNPLACED up:
-			for (int x = 0; x < 8; x++){
-				FracturedModelInstance *mi = &board[x][0];
-				while (mi->state != UNPLACED){
-					mi++;
-					if (mi - board[x] >= 8){
-						goto L0;
-					}
-				}
-				for (int y = (int)(mi-(&board[x][0]))+1; y < 8; y++){
-					if (board[x][y].state != UNPLACED){
-						*mi = board[x][y];
-						mi->state = FALLING;
-						mi++;
-						board[x][y].state = UNPLACED;
-					}
-				}
-				L0:;
-			}
-			//randomize UNPLACED:
-			for (int x = 0; x < 8; x++){
-				for (int y = 0; y < 8; y++){
-					if (board[x][y].state == UNPLACED){
-						board[x][y].model = models+rand_int(COUNT(models));
-					}
-				}
-			}
-			//remove matches:
-			bool found;
-			do {
-				//need to ensure at least 1 potential match here
-				//find pairs of UNPLACED:
-				pairCount = 0;
-				for (int y = 0; y < 8; y++){
-					for (int x = 0; x < 7; x++){
-						if (
-							board[x][y].state == UNPLACED &&
-							board[x+1][y].state == UNPLACED
-						){
-							append_pair(x,y,0);
-						}
-					}
-				}
-				for (int x = 0; x < 8; x++){
-					for (int y = 0; y < 7; y++){
-						if (
-							board[x][y].state == UNPLACED &&
-							board[x][y+1].state == UNPLACED
-						){
-							append_pair(x,y,1);
-						}
-					}
-				}
-				//pick random pair and make a potential match with it:
-				//TODO: need to only do this if there isn't a potential match on the board already
-				//TODO: this only checks inline matches
-				for (int x = 0; x < 8; x++){
-					for (int y = 0; y <= 4; y++){
-						if (
-							(board[x][y].model == board[x][y+1].model && board[x][y].model == board[x][y+3].model) ||
-							(board[x][y].model == board[x][y+2].model && board[x][y].model == board[x][y+3].model)
-						){
-							goto L2;
-						}
-					}
-				}
-				for (int y = 0; y < 8; y++){
-					for (int x = 0; x <= 4; x++){
-						if (
-							(board[x][y].model == board[x+1][y].model && board[x][y].model == board[x+3][y].model) ||
-							(board[x][y].model == board[x+2][y].model && board[x][y].model == board[x+3][y].model)
-						){
-							goto L2;
-						}
-					}
-				}
-				{
-					//TODO: this only makes inline matches, it should make other types of matches too.
-					ASSERT(pairCount > 0);
-					EmptyPair *p = pairs + rand_int(pairCount);
-					int x = p->position[0];
-					int y = p->position[1];
-					FracturedModel *m;
-					if (p->direction == 0){
-						//horizontal
-						if (p->position[0] < 2){
-							m = board[x+3][y].model;
-						} else if (p->position[0] < 5){
-							if (rand_int(2)){
-								m = board[x+3][y].model;
-							} else {
-								m = board[x-2][y].model;
-							}
-						} else {
-							m = board[x-2][y].model;
-						}
-						board[x+1][y].model = m;
-					} else {
-						//vertical
-						if (p->position[1] < 2){
-							m = board[x][y+3].model;
-						} else if (p->position[1] < 5){
-							if (rand_int(2)){
-								m = board[x][y+3].model;
-							} else {
-								m = board[x][y-2].model;
-							}
-						} else {
-							m = board[x][y-2].model;
-						}
-						board[x][y+1].model = m;
-					}
-					board[x][y].model = m;
-				}
-				L2:;
-				//remove matches:
-				found = false;
-				for (int y = 0; y < 8; y++){
-					last = 0;
-					same = 0;
-					for (int x = 0; x < 8; x++){
-						if (board[x][y].state != UNPLACED){
-							last = 0;
-							same = 0;
-							continue;
-						}
-						FracturedModel *m = board[x][y].model;
-						if (last != m){
-							same = 1;
-							last = m;
-						} else {
-							same++;
-						}
-						if (same == 3){
-							int id = (int)(m-models);
-							int r = rand_int(COUNT(models)-1);
-							board[x][y].model = r >= id ? models+r+1 : models+r;
-							found = true;
-						}
-					}
-				}
-				for (int x = 0; x < 8; x++){
-					last = 0;
-					same = 0;
-					for (int y = 0; y < 8; y++){
-						if (board[x][y].state != UNPLACED){
-							last = 0;
-							same = 0;
-							continue;
-						}
-						FracturedModel *m = board[x][y].model;
-						if (last != m){
-							same = 1;
-							last = m;
-						} else {
-							same++;
-						}
-						if (same == 3){
-							int id = (int)(m-models);
-							int r = rand_int(COUNT(models)-1);
-							board[x][y].model = r >= id ? models+r+1 : models+r;
-							found = true;
-						}
-					}
-				}
-			} while (found);
-		}
-		//update:
-		float unplacedInc = cellWidth*1.2f;
-		for (int x = 0; x < 8; x++){
-			float unplacedY = 9.1f;
-			for (int y = 0; y < 8; y++){
-				float top = board[x][y].position[1]+unplacedInc;
-				if (top > unplacedY){
-					unplacedY = top;
-				}
-			}
-			for (int y = 0; y < 8; y++){
-				FracturedModelInstance *mi = &board[x][y];
-				if (mi->state == UNPLACED){
-					mi->position[0] = boardRect.left + x*cellWidth;
-					mi->position[1] = unplacedY;
-					mi->rotationRandom = (float)rand_int(360);
-					mi->yVelocity = 0.0f;
-					mi->state = FALLING;
-					unplacedY += unplacedInc;
-				} else if (mi->state == FALLING){
-					mi->yVelocity += GRAVITY * dt;
-					if (mi->yVelocity < -9.8f){
-						mi->yVelocity = -9.8f;
-					}
-					mi->position[1] += mi->yVelocity * dt;
-					if (y){
-						float top = board[x][y-1].position[1] + cellWidth - 0.001f;
-						if (mi->position[1] < top){
-							mi->position[1] = top;
-							mi->yVelocity = 0.0f;
-						}
-					}
-					float rest = boardRect.bottom+y*cellWidth;
-					if (mi->position[1] < rest){
-						mi->position[1] = rest;
-						mi->yVelocity = 0.0f;
-						mi->state = SETTLED;
-					}
-				}
-			}
-		}
-		//animate move:
-		if (move.active){
-			FracturedModelInstance
-				*si = &board[move.src[0]][move.src[1]],
-				*di = &board[move.dst[0]][move.dst[1]];
-			vec2 spos = {
-				boardRect.left + move.src[0]*cellWidth,
-				boardRect.bottom + move.src[1]*cellWidth
-			};
-			vec2 dpos = {
-				boardRect.left + move.dst[0]*cellWidth,
-				boardRect.bottom + move.dst[1]*cellWidth
-			};
-			move.t += 5*dt;
-			if (move.t >= 1.0f){
-				move.active = false;
-				for (int x = 0; x < 8; x++){
-					for (int y = 0; y < 8; y++){
-						if (board[x][y].state == ANIMATING){
-							board[x][y].state = SETTLED;
-						}
-					}
-				}
-				FracturedModelInstance temp;
-				SWAP(temp,*si,*di);
-				vec2_copy(spos,si->position);
-				vec2_copy(dpos,di->position);
-			} else {
-				vec2_lerp(spos,dpos,move.t,si->position);
-				vec2_lerp(dpos,spos,move.t,di->position);
-			}
-		}
-		//animate fragments:
-		for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
-			if (f->model){
-				f->velocity[1] += GRAVITY * dt;
-				vec2 dp;
-				vec2_scale(f->velocity,dt,dp);
-				vec2_add(f->position,dp,f->position);
-				if (f->position[0] < -1.0f || 
-					f->position[0] > 16.0f ||
-					f->position[1] < -1.0f ||
-					f->position[1] > 9.0f){
-					f->model = 0;
-				}
-			}
-		}
-
-		////////////// Render:
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
+		project_ortho(0,16,0,9,-100,1);
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -970,13 +658,353 @@ void main(void){
 
 		glShadeModel(GL_SMOOTH);
 
-		glEnable(GL_TEXTURE_2D);
-		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
+		if (gameState == ON_MENU){
+			glColor3f(1,1,1);
+			draw_circle(2,2,1,1,32);
+		} else if (gameState == PLAYING){
+			//explode matches:
+			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
+			//moves do local checks and mark the 2 nearest matching objects as ANIMATING along with the moved object
+			/*
+			this needs to mark objects for explosion and then explode them.
+			otherwise we miss multi-matches
+			*/
+			markedCount = 0;
+			FracturedModel *last;
+			int same;
+			for (int y = 0; y < 8; y++){
+				same = 0;
+				last = 0;
+				for (int x = 0; x < 8; x++){
+					if (board[x][y].state != SETTLED){
+						last = 0;
+						same = 0;
+						continue;
+					}
+					FracturedModel *m = board[x][y].model;
+					if (last != m){
+						same = 1;
+						last = m;
+					} else {
+						same++;
+					}
+					if (last){
+						if (same == 3){
+							for (int xx = x-2; xx <= x; xx++){
+								mark(xx,y);
+							}
+						} else if (same > 3){
+							mark(x,y);
+						}
+					}
+				}
+			}
+			for (int x = 0; x < 8; x++){
+				same = 0;
+				last = 0;
+				for (int y = 0; y < 8; y++){
+					if (board[x][y].state != SETTLED){
+						last = 0;
+						same = 0;
+						continue;
+					}
+					FracturedModel *m = board[x][y].model;
+					if (last != m){
+						same = 1;
+						last = m;
+					} else {
+						same++;
+					}
+					if (last){
+						if (same == 3){
+							for (int yy = y-2; yy <= y; yy++){
+								mark(x,yy);
+							}
+						} else if (same > 3){
+							mark(x,y);
+						}
+					}
+				}
+			}
+			if (markedCount){
+				play_sound(bruh);
+			}
+			for (int i = 0; i < markedCount; i++){
+				explode_object(marked[i]);
+			}
+			//detect UNPLACED:
+			bool unplacedFound = false;
+			for (int x = 0; x < 8; x++){
+				for (int y = 0; y < 8; y++){
+					if (board[x][y].state == UNPLACED){
+						unplacedFound = true;
+						goto L1;
+					}
+				}
+			}
+			L1:;
+			if (unplacedFound){
+				//propagate UNPLACED up:
+				for (int x = 0; x < 8; x++){
+					FracturedModelInstance *mi = &board[x][0];
+					while (mi->state != UNPLACED){
+						mi++;
+						if (mi - board[x] >= 8){
+							goto L0;
+						}
+					}
+					for (int y = (int)(mi-(&board[x][0]))+1; y < 8; y++){
+						if (board[x][y].state != UNPLACED){
+							*mi = board[x][y];
+							mi->state = FALLING;
+							mi++;
+							board[x][y].state = UNPLACED;
+						}
+					}
+					L0:;
+				}
+				//randomize UNPLACED:
+				for (int x = 0; x < 8; x++){
+					for (int y = 0; y < 8; y++){
+						if (board[x][y].state == UNPLACED){
+							board[x][y].model = models+rand_int(COUNT(models));
+						}
+					}
+				}
+				//remove matches:
+				bool found;
+				do {
+					//need to ensure at least 1 potential match here
+					//find pairs of UNPLACED:
+					pairCount = 0;
+					for (int y = 0; y < 8; y++){
+						for (int x = 0; x < 7; x++){
+							if (
+								board[x][y].state == UNPLACED &&
+								board[x+1][y].state == UNPLACED
+							){
+								append_pair(x,y,0);
+							}
+						}
+					}
+					for (int x = 0; x < 8; x++){
+						for (int y = 0; y < 7; y++){
+							if (
+								board[x][y].state == UNPLACED &&
+								board[x][y+1].state == UNPLACED
+							){
+								append_pair(x,y,1);
+							}
+						}
+					}
+					//pick random pair and make a potential match with it:
+					//TODO: need to only do this if there isn't a potential match on the board already
+					//TODO: this only checks inline matches
+					for (int x = 0; x < 8; x++){
+						for (int y = 0; y <= 4; y++){
+							if (
+								(board[x][y].model == board[x][y+1].model && board[x][y].model == board[x][y+3].model) ||
+								(board[x][y].model == board[x][y+2].model && board[x][y].model == board[x][y+3].model)
+							){
+								goto L2;
+							}
+						}
+					}
+					for (int y = 0; y < 8; y++){
+						for (int x = 0; x <= 4; x++){
+							if (
+								(board[x][y].model == board[x+1][y].model && board[x][y].model == board[x+3][y].model) ||
+								(board[x][y].model == board[x+2][y].model && board[x][y].model == board[x+3][y].model)
+							){
+								goto L2;
+							}
+						}
+					}
+					{
+						//TODO: this only makes inline matches, it should make other types of matches too.
+						ASSERT(pairCount > 0);
+						EmptyPair *p = pairs + rand_int(pairCount);
+						int x = p->position[0];
+						int y = p->position[1];
+						FracturedModel *m;
+						if (p->direction == 0){
+							//horizontal
+							if (p->position[0] < 2){
+								m = board[x+3][y].model;
+							} else if (p->position[0] < 5){
+								if (rand_int(2)){
+									m = board[x+3][y].model;
+								} else {
+									m = board[x-2][y].model;
+								}
+							} else {
+								m = board[x-2][y].model;
+							}
+							board[x+1][y].model = m;
+						} else {
+							//vertical
+							if (p->position[1] < 2){
+								m = board[x][y+3].model;
+							} else if (p->position[1] < 5){
+								if (rand_int(2)){
+									m = board[x][y+3].model;
+								} else {
+									m = board[x][y-2].model;
+								}
+							} else {
+								m = board[x][y-2].model;
+							}
+							board[x][y+1].model = m;
+						}
+						board[x][y].model = m;
+					}
+					L2:;
+					//remove matches:
+					found = false;
+					for (int y = 0; y < 8; y++){
+						last = 0;
+						same = 0;
+						for (int x = 0; x < 8; x++){
+							if (board[x][y].state != UNPLACED){
+								last = 0;
+								same = 0;
+								continue;
+							}
+							FracturedModel *m = board[x][y].model;
+							if (last != m){
+								same = 1;
+								last = m;
+							} else {
+								same++;
+							}
+							if (same == 3){
+								int id = (int)(m-models);
+								int r = rand_int(COUNT(models)-1);
+								board[x][y].model = r >= id ? models+r+1 : models+r;
+								found = true;
+							}
+						}
+					}
+					for (int x = 0; x < 8; x++){
+						last = 0;
+						same = 0;
+						for (int y = 0; y < 8; y++){
+							if (board[x][y].state != UNPLACED){
+								last = 0;
+								same = 0;
+								continue;
+							}
+							FracturedModel *m = board[x][y].model;
+							if (last != m){
+								same = 1;
+								last = m;
+							} else {
+								same++;
+							}
+							if (same == 3){
+								int id = (int)(m-models);
+								int r = rand_int(COUNT(models)-1);
+								board[x][y].model = r >= id ? models+r+1 : models+r;
+								found = true;
+							}
+						}
+					}
+				} while (found);
+			}
+			//update:
+			float unplacedInc = cellWidth*1.2f;
+			for (int x = 0; x < 8; x++){
+				float unplacedY = 9.1f;
+				for (int y = 0; y < 8; y++){
+					float top = board[x][y].position[1]+unplacedInc;
+					if (top > unplacedY){
+						unplacedY = top;
+					}
+				}
+				for (int y = 0; y < 8; y++){
+					FracturedModelInstance *mi = &board[x][y];
+					if (mi->state == UNPLACED){
+						mi->position[0] = boardRect.left + x*cellWidth;
+						mi->position[1] = unplacedY;
+						mi->rotationRandom = (float)rand_int(360);
+						mi->yVelocity = 0.0f;
+						mi->state = FALLING;
+						unplacedY += unplacedInc;
+					} else if (mi->state == FALLING){
+						mi->yVelocity += GRAVITY * dt;
+						if (mi->yVelocity < -9.8f){
+							mi->yVelocity = -9.8f;
+						}
+						mi->position[1] += mi->yVelocity * dt;
+						if (y){
+							float top = board[x][y-1].position[1] + cellWidth - 0.001f;
+							if (mi->position[1] < top){
+								mi->position[1] = top;
+								mi->yVelocity = 0.0f;
+							}
+						}
+						float rest = boardRect.bottom+y*cellWidth;
+						if (mi->position[1] < rest){
+							mi->position[1] = rest;
+							mi->yVelocity = 0.0f;
+							mi->state = SETTLED;
+						}
+					}
+				}
+			}
+			//animate move:
+			if (move.active){
+				FracturedModelInstance
+					*si = &board[move.src[0]][move.src[1]],
+					*di = &board[move.dst[0]][move.dst[1]];
+				vec2 spos = {
+					boardRect.left + move.src[0]*cellWidth,
+					boardRect.bottom + move.src[1]*cellWidth
+				};
+				vec2 dpos = {
+					boardRect.left + move.dst[0]*cellWidth,
+					boardRect.bottom + move.dst[1]*cellWidth
+				};
+				move.t += 5*dt;
+				if (move.t >= 1.0f){
+					move.active = false;
+					for (int x = 0; x < 8; x++){
+						for (int y = 0; y < 8; y++){
+							if (board[x][y].state == ANIMATING){
+								board[x][y].state = SETTLED;
+							}
+						}
+					}
+					FracturedModelInstance temp;
+					SWAP(temp,*si,*di);
+					vec2_copy(spos,si->position);
+					vec2_copy(dpos,di->position);
+				} else {
+					vec2_lerp(spos,dpos,move.t,si->position);
+					vec2_lerp(dpos,spos,move.t,di->position);
+				}
+			}
+			//animate fragments:
+			for (Fragment *f = fragments; f < fragments+COUNT(fragments); f++){
+				if (f->model){
+					f->velocity[1] += GRAVITY * dt;
+					vec2 dp;
+					vec2_scale(f->velocity,dt,dp);
+					vec2_add(f->position,dp,f->position);
+					if (f->position[0] < -1.0f || 
+						f->position[0] > 16.0f ||
+						f->position[1] < -1.0f ||
+						f->position[1] > 9.0f){
+						f->model = 0;
+					}
+				}
+			}
 
-		{
+			////////////// Render:
 			glLoadIdentity();
 
-			project_ortho(0,16,0,9,-100,1);
+			glEnable(GL_TEXTURE_2D);
+			glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
@@ -1006,13 +1034,11 @@ void main(void){
 			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
 
 			glBindTexture(GL_TEXTURE_2D,font.id);
-			fontScale = 0.005f;
+			set_font_scale(2.0f);
 			draw_text_shadow(1,3,5,"match mayhem");
-		}
 
-		glClear(GL_DEPTH_BUFFER_BIT);
+			glClear(GL_DEPTH_BUFFER_BIT);
 
-		{
 			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
 			GLfloat mat_shininess[] = { 50.0 };
 			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
@@ -1117,6 +1143,7 @@ void main(void){
 				}
 			}
 			glDisable(GL_LIGHTING);
+			glDisable(GL_TEXTURE_2D);
 		}
 
 		glCheckError();
