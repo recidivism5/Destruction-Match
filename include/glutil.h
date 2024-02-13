@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <linmath.h>
 #include <stb_image.h>
+#include <stb_rect_pack.h>
 #include <stb_truetype.h>
 
 #include <base.h>

@@ -113,6 +113,8 @@ float timeRemaining;
 int targetItems;
 int totalItems;
 
+float fontScale;
+
 ////////////////END GLOBALS
 
 void init_bubbles(){
@@ -360,6 +362,34 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glEnd();
 }
 
+void draw_text(float x, float y, float z, char *text){
+	glBegin(GL_QUADS);
+	while (*text){
+		stbtt_bakedchar *bc = font.bakedChars+(*text)-' ';
+		FRect r = {
+			.left = x + fontScale*bc->xoff,
+			.top = y - fontScale*bc->yoff
+		};
+		r.right = r.left + fontScale*(float)(bc->x1-bc->x0);
+		r.bottom = r.top - fontScale*(float)(bc->y1-bc->y0);
+		glTexCoord2f((float)bc->x0/font.width,(float)bc->y1/font.width); glVertex3f(r.left,r.bottom,z);
+		glTexCoord2f((float)bc->x1/font.width,(float)bc->y1/font.width); glVertex3f(r.right,r.bottom,z);
+		glTexCoord2f((float)bc->x1/font.width,(float)bc->y0/font.width); glVertex3f(r.right,r.top,z);
+		glTexCoord2f((float)bc->x0/font.width,(float)bc->y0/font.width); glVertex3f(r.left,r.top,z);
+		x += fontScale*bc->xadvance;
+		text++;
+	}
+	glEnd();
+}
+
+void draw_text_shadow(float x, float y, float z, char *text){
+	glColor3f(0,0,0);
+	float off = fontScale * 8.0f;
+	draw_text(x+off,y-off,z,text);
+	glColor3f(1,1,1);
+	draw_text(x,y,z+1,text);
+}
+
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
@@ -518,13 +548,13 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	gen_font_atlas(&font,"Nunito-Regular",160);
+	gen_font_atlas(&font,"Nunito-Regular",400);
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 	load_texture(&bubbleTexture,"textures/bubble.png",true);
-	load_texture(&tubeFrontTexture,"textures/tube_front8.png",true);
+	load_texture(&tubeFrontTexture,"textures/tube_front10.png",true);
 
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
@@ -976,19 +1006,11 @@ void main(void){
 			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
 
 			glBindTexture(GL_TEXTURE_2D,font.id);
-			stbtt_bakedchar *bc = font.bakedChars+32;
-			glBegin(GL_QUADS);
-			glTexCoord2f((float)bc->x0/font.width,(float)bc->y1/font.width); glVertex3f(0,0,5);
-			glTexCoord2f((float)bc->x1/font.width,(float)bc->y1/font.width); glVertex3f(1,0,5);
-			glTexCoord2f((float)bc->x1/font.width,(float)bc->y0/font.width); glVertex3f(1,1,5);
-			glTexCoord2f((float)bc->x0/font.width,(float)bc->y0/font.width); glVertex3f(0,1,5);
-			glEnd();
+			fontScale = 0.005f;
+			draw_text_shadow(1,3,5,"match mayhem");
 		}
 
 		glClear(GL_DEPTH_BUFFER_BIT);
-
-		glEnable(GL_SCISSOR_TEST);
-		glScissor((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 
 		{
 			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
