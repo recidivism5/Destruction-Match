@@ -90,7 +90,7 @@ FracturedModelInstance board[8][8];//by column,row
 
 Fragment fragments[1024];
 
-Texture beachBackground, checker, frame, bubbleTexture, tubeFrontTexture;
+Texture beachBackground, checker, frame, bubbleTexture, tubeFrontTexture, wideButtonDark, wideButtonLight;
 
 FracturedModel models[6];
 
@@ -113,9 +113,10 @@ float timeRemaining;
 int targetItems;
 int totalItems;
 
+float fontHeight;
 float fontScale;
 
-#define FONT_HEIGHT 400
+#define FONT_HEIGHT_PIX 400
 
 enum GameState {
 	ON_MENU,
@@ -123,6 +124,10 @@ enum GameState {
 };
 
 enum GameState gameState = ON_MENU;
+
+float uiY;
+
+bool justClicked;
 
 ////////////////END GLOBALS
 
@@ -384,8 +389,9 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glEnd();
 }
 
-void set_font_scale(float scale){
-	fontScale = scale / FONT_HEIGHT;
+void set_font_height(float height){
+	fontHeight = height;
+	fontScale = fontHeight / FONT_HEIGHT_PIX;
 }
 
 void draw_text(float x, float y, float z, char *text){
@@ -408,12 +414,83 @@ void draw_text(float x, float y, float z, char *text){
 	glEnd();
 }
 
+void draw_text_centered(float x, float y, float z, char *text){
+	float width = 0.0f;
+	size_t len = strlen(text);
+	stbtt_bakedchar *bc;
+	for (size_t i = 0; i < len-1; i++){
+		bc = font.bakedChars+text[i]-' ';
+		width += fontScale*bc->xadvance;
+	}
+	bc = font.bakedChars+text[len-1]-' ';
+	width += fontScale*(bc->x1-bc->x0);
+	draw_text(x-width/2,y-fontHeight/4,z,text);
+}
+
 void draw_text_shadow(float x, float y, float z, char *text){
 	glColor3f(0,0,0);
 	float off = fontScale * 8.0f;
 	draw_text(x+off,y-off,z,text);
 	glColor3f(1,1,1);
 	draw_text(x,y,z+1,text);
+}
+
+void draw_text_shadow_centered(float x, float y, float z, char *text){
+	glColor3f(0,0,0);
+	float off = fontScale * 8.0f;
+	draw_text_centered(x+off,y-off,z,text);
+	glColor3f(1,1,1);
+	draw_text_centered(x,y,z+1,text);
+}
+
+void draw_button(float x, float y, float z, char *text){
+	glBindTexture(GL_TEXTURE_2D,wideButtonDark.id);
+	float aspect = 293.0f/75.0f;
+	float width = fontHeight * aspect;
+	x -= width/2;
+	y -= fontHeight/2;
+	glColor3f(1,1,1);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0,0); glVertex3f(x,y,z);
+	glTexCoord2f(1,0); glVertex3f(x+width,y,z);
+	glTexCoord2f(1,1); glVertex3f(x+width,y+fontHeight,z);
+	glTexCoord2f(0,1); glVertex3f(x,y+fontHeight,z);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D,font.id);
+	draw_text_shadow_centered(x+width/2,y+fontHeight/2,z+1,text);
+}
+
+void ui_begin(float y){
+	uiY = y;
+	set_font_height(1.0f);
+	glEnable(GL_TEXTURE_2D);
+}
+
+void ui_end(){
+	glDisable(GL_TEXTURE_2D);
+}
+
+bool ui_button(char *text){
+	float aspect = 293.0f/75.0f;
+	FSRect rect = {
+		.width = fontHeight * aspect,
+		.height = fontHeight
+	};
+	rect.x = 8.0f - rect.width/2;
+	rect.y = uiY - fontHeight/2;
+	bool hovered = mouse_in_rect(&rect);
+	glBindTexture(GL_TEXTURE_2D,hovered ? wideButtonLight.id : wideButtonDark.id);
+	glColor3f(1,1,1);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0,0); glVertex3f(rect.x,rect.y,2);
+	glTexCoord2f(1,0); glVertex3f(rect.x+rect.width,rect.y,2);
+	glTexCoord2f(1,1); glVertex3f(rect.x+rect.width,rect.y+fontHeight,2);
+	glTexCoord2f(0,1); glVertex3f(rect.x,rect.y+fontHeight,2);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D,font.id);
+	draw_text_shadow_centered(rect.x+rect.width/2,rect.y+fontHeight/2,3,text);
+	uiY -= 1.5f;
+	return hovered && justClicked;
 }
 
 void cleanup(void){
@@ -489,6 +566,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		case GLFW_RELEASE:{
 			switch (button){
 				case GLFW_MOUSE_BUTTON_1:{
+					justClicked = true;
 					if (grabbedObject){
 						ivec2 src = {
 							(int)((grabbedObject - &board[0][0]) / 8),
@@ -574,13 +652,15 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	gen_font_atlas(&font,"Nunito-Regular",FONT_HEIGHT);
+	gen_font_atlas(&font,"Nunito-Regular",FONT_HEIGHT_PIX);
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
 	load_texture(&bubbleTexture,"textures/bubble.png",true);
 	load_texture(&tubeFrontTexture,"textures/tube_front10.png",true);
+	load_texture(&wideButtonDark,"textures/wide_button_dark.png",true);
+	load_texture(&wideButtonLight,"textures/wide_button_light.png",true);
 
 	load_fractured_model(models+0,"campaigns/juicebar/models/apple");
 	load_fractured_model(models+1,"campaigns/juicebar/models/banana");
@@ -680,9 +760,19 @@ void main(void){
 
 			glEnable(GL_TEXTURE_2D);
 			glBindTexture(GL_TEXTURE_2D,font.id);
-			set_font_scale(2.0f);
+			set_font_height(2.0f);
 			draw_text_shadow(3,6,1,"Match Mayhem");
 			glDisable(GL_TEXTURE_2D);
+
+			ui_begin(4.5f);
+			if (ui_button("Play")){
+				printf("Play\n");
+			}
+			ui_button("Settings");
+			if (ui_button("Quit")){
+				glfwSetWindowShouldClose(gwindow,GLFW_TRUE);
+			}
+			ui_end();
 		} else if (gameState == PLAYING){
 			//explode matches:
 			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
@@ -1055,7 +1145,7 @@ void main(void){
 			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
 
 			glBindTexture(GL_TEXTURE_2D,font.id);
-			set_font_scale(2.0f);
+			set_font_height(2.0f);
 			draw_text_shadow(1,3,5,"match mayhem");
 
 			glClear(GL_DEPTH_BUFFER_BIT);
@@ -1172,6 +1262,8 @@ void main(void){
 		alcCheckError(alcDevice);
  
 		glfwSwapBuffers(gwindow);
+
+		justClicked = false;
 
 		POLL:
 		glfwPollEvents();

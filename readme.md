@@ -23,6 +23,7 @@
 - Endless mode (Random backgrounds and objects)
 - Unlock themes and backgrounds for endless mode
 - Unlock custom cursors
+- Unlock colored outlines + rainbow
 right click drag over items to pull them out, if they match an order.
 must be in relative order, like a word search. so, can be backwards, but must be in order.
 for juice bar, they go into blender and are dispensed to the customer
