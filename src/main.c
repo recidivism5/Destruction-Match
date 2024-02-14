@@ -649,18 +649,40 @@ void main(void){
 		glViewport((int)screen.x,(int)screen.y,(int)screen.width,(int)screen.height);
 		project_ortho(0,16,0,9,-100,1);
 
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
-
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-
 		glShadeModel(GL_SMOOTH);
+		glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
+
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
 		if (gameState == ON_MENU){
-			glColor3f(1,1,1);
-			draw_circle(2,2,1,1,32);
+			glBegin(GL_QUADS);
+			glColor3f(1,0,0); glVertex3f(0,0,0);
+			glColor3f(0,1,0); glVertex3f(16,0,0);
+			glColor3f(0,0,1); glVertex3f(16,9,0);
+			glColor3f(1,1,0); glVertex3f(0,9,0);
+			glEnd();
+
+			glColor3f(0,0,0);
+			static float offset = -1.5f;
+			offset += dt;
+			if (offset >= 0.0f){
+				offset = -1.5f;
+			}
+			for (int j = 0; j < 8; j++){
+				for (int i = 0; i < 8; i++){
+					draw_circle(offset+(j%2)*1.5f+i*3.0f,offset+j*1.5f,1,0.25f,32);
+				}
+			}
+
+			glEnable(GL_TEXTURE_2D);
+			glBindTexture(GL_TEXTURE_2D,font.id);
+			set_font_scale(2.0f);
+			draw_text_shadow(3,6,1,"Match Mayhem");
+			glDisable(GL_TEXTURE_2D);
 		} else if (gameState == PLAYING){
 			//explode matches:
 			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
@@ -1004,7 +1026,6 @@ void main(void){
 			glLoadIdentity();
 
 			glEnable(GL_TEXTURE_2D);
-			glTexEnvf(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
