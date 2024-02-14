@@ -118,16 +118,26 @@ float fontScale;
 
 #define FONT_HEIGHT_PIX 400
 
-enum GameState {
+enum {
 	ON_MENU,
 	PLAYING,
-};
-
-enum GameState gameState = ON_MENU;
+} gameState = ON_MENU, targetGameState;
 
 float uiY;
 
 bool justClicked;
+
+enum {
+	FADE_NONE,
+	FADE_OUT,
+	FADE_IN
+} fadeState;
+float fadeAlpha;
+
+float slideX;
+
+bool fadeZoneTitle;
+float zoneTitleAlpha;
 
 ////////////////END GLOBALS
 
@@ -443,6 +453,14 @@ void draw_text_shadow_centered(float x, float y, float z, char *text){
 	draw_text_centered(x,y,z+1,text);
 }
 
+void draw_text_shadow_centered_alpha(float x, float y, float z, float alpha, char *text){
+	glColor4f(0,0,0,alpha);
+	float off = fontScale * 8.0f;
+	draw_text_centered(x+off,y-off,z,text);
+	glColor4f(1,1,1,alpha);
+	draw_text_centered(x,y,z+1,text);
+}
+
 void draw_button(float x, float y, float z, char *text){
 	glBindTexture(GL_TEXTURE_2D,wideButtonDark.id);
 	float aspect = 293.0f/75.0f;
@@ -738,6 +756,18 @@ void main(void){
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
+		slideX -= 7.0f*dt;
+		if (slideX <= 0.0f){
+			slideX = 0.0f;
+			fadeZoneTitle = true;
+		}
+		if (fadeZoneTitle){
+			zoneTitleAlpha -= dt;
+			if (zoneTitleAlpha < 0.0f){
+				zoneTitleAlpha = 0.0f;
+			}
+		}
+
 		if (gameState == ON_MENU){
 			glBegin(GL_QUADS);
 			glColor3f(1,0,0); glVertex3f(0,0,0);
@@ -765,8 +795,15 @@ void main(void){
 			glDisable(GL_TEXTURE_2D);
 
 			ui_begin(4.5f);
+			if (targetGameState == PLAYING){
+				justClicked = false;
+			}
 			if (ui_button("Play")){
-				printf("Play\n");
+				targetGameState = PLAYING;
+				fadeState = FADE_OUT;
+				slideX = 16.0f;
+				zoneTitleAlpha = 1.0f;
+				fadeZoneTitle = false;
 			}
 			ui_button("Settings");
 			if (ui_button("Quit")){
@@ -1114,8 +1151,10 @@ void main(void){
 
 			////////////// Render:
 			glLoadIdentity();
+			glTranslatef(slideX,0,0);
 
 			glEnable(GL_TEXTURE_2D);
+			glColor4f(1,1,1,1);
 
 			glBindTexture(GL_TEXTURE_2D,beachBackground.id);
 			glBegin(GL_QUADS);
@@ -1141,12 +1180,8 @@ void main(void){
 			glTexCoord2f(0,1); glVertex3f(fcenter[0]-fhw,fcenter[1]+fhw,2);
 			glEnd();
 
-			draw_meter(16.0f/3.0f,1.0f,0.0f,0.0f,timeRemaining);
-			draw_meter(16.0f/3.0f - 4.0f/3.0f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
-
-			glBindTexture(GL_TEXTURE_2D,font.id);
-			set_font_height(2.0f);
-			draw_text_shadow(1,3,5,"match mayhem");
+			draw_meter(4.0f + 0.75f,1.0f,0.0f,0.0f,timeRemaining);
+			draw_meter(4.0f - 0.75f,0.0f,1.0f,0.0f,(float)totalItems/targetItems);
 
 			glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -1173,6 +1208,7 @@ void main(void){
 						fmi_get_rect(mi,&rect);
 
 						glLoadIdentity();
+						glTranslatef(slideX,0,0);
 						glTranslated(rect.x+0.5f*rect.width,rect.y+0.5f*rect.height,10);
 						glRotated(t0*120+mi->rotationRandom,0,1,0);
 						glScaled(0.75f,0.75f,0.75f);
@@ -1230,6 +1266,7 @@ void main(void){
 					get_rect(f->position,&rect);
 					
 					glLoadIdentity();
+					glTranslatef(slideX,0,0);
 					glTranslated(rect.x+0.5f*rect.width,rect.y+0.5f*rect.height,10);
 					glRotated(t0*120+f->rotationRandom,0,1,0);
 					glScaled(0.75f,0.75f,0.75f);
@@ -1254,7 +1291,38 @@ void main(void){
 				}
 			}
 			glDisable(GL_LIGHTING);
+
+			glLoadIdentity();
+			glBindTexture(GL_TEXTURE_2D,font.id);
+			set_font_height(1.0f);
+			draw_text_shadow_centered_alpha(8.0f,4.5f,20,zoneTitleAlpha,"Zone 1: The Beach");
+
 			glDisable(GL_TEXTURE_2D);
+		}
+
+		glLoadIdentity();
+		if (fadeState != FADE_NONE){
+			if (fadeState == FADE_OUT){
+				fadeAlpha += dt;
+				if (fadeAlpha >= 1.0f){
+					fadeAlpha = 1.0f;
+					gameState = targetGameState;
+					fadeState = FADE_IN;
+				}
+			} else if (fadeState == FADE_IN){
+				fadeAlpha -= dt;
+				if (fadeAlpha <= 0.0f){
+					fadeAlpha = 0.0f;
+					fadeState = FADE_NONE;
+				}
+			}
+			glColor4f(0,0,0,fadeAlpha);
+			glBegin(GL_QUADS);
+			glVertex3f(0,0,25);
+			glVertex3f(16,0,25);
+			glVertex3f(16,9,25);
+			glVertex3f(0,9,25);
+			glEnd();
 		}
 
 		glCheckError();
