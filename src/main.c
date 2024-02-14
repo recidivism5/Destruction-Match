@@ -26,8 +26,8 @@ typedef struct {
 
 typedef struct {
 	int vertexCount;
-	ModelVertex *vertices;
-	vec3 *expandedPositions;
+	GLuint vertices;
+	GLuint expandedPositions;
 	int materialCount;
 	Material *materials;
 	int objectCount;
@@ -139,6 +139,10 @@ float slideX;
 bool fadeZoneTitle;
 float zoneTitleAlpha;
 
+int frames;
+float frameTime;
+int fps;
+
 ////////////////END GLOBALS
 
 void draw_circle(float x, float y, float z, float radius, int vertices){
@@ -170,19 +174,27 @@ void load_fractured_model(FracturedModel *model, char *name){
 	
 	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
 	ASSERT(model->vertexCount < 65536);
-	model->vertices = malloc(model->vertexCount * sizeof(*model->vertices));
-	ASSERT(model->vertices);
-	model->expandedPositions = malloc(model->vertexCount * sizeof(*model->expandedPositions));
-	ASSERT(model->expandedPositions);
-	ASSERT(1==fread(model->vertices,model->vertexCount * sizeof(*model->vertices),1,f));
+	ModelVertex *vertices = malloc(model->vertexCount * sizeof(*vertices));
+	ASSERT(vertices);
+	vec3 *expandedPositions = malloc(model->vertexCount * sizeof(*expandedPositions));
+	ASSERT(expandedPositions);
+	ASSERT(1==fread(vertices,model->vertexCount * sizeof(*vertices),1,f));
 	for (int i = 0; i < model->vertexCount; i++){
-		vec3 *ev = model->expandedPositions+i;
-		ModelVertex *v = model->vertices+i;
+		vec3 *ev = expandedPositions+i;
+		ModelVertex *v = vertices+i;
 		vec3_copy(v->position,(float *)ev);
 		vec3 snorm;
 		vec3_scale(v->normal,0.025f,snorm);
 		vec3_add((float *)ev,snorm,(float *)ev);
 	}
+	glGenBuffers(1,&model->vertices);
+	glBindBuffer(GL_ARRAY_BUFFER,model->vertices);
+	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*vertices),vertices,GL_STATIC_DRAW);
+	glGenBuffers(1,&model->expandedPositions);
+	glBindBuffer(GL_ARRAY_BUFFER,model->expandedPositions);
+	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*expandedPositions),expandedPositions,GL_STATIC_DRAW);
+	free(vertices);
+	free(expandedPositions);
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
 	model->materials = malloc(model->materialCount * sizeof(*model->materials));
@@ -647,8 +659,8 @@ void main(void){
  
 	ASSERT(glfwInit());
  
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	glfwWindowHint(GLFW_SAMPLES, 4);
 	gwindow = create_centered_window(640,480,"Match Mayhem");
  
@@ -811,6 +823,13 @@ void main(void){
 			}
 			ui_end();
 		} else if (gameState == PLAYING){
+			for (int x = 0; x < 8; x++){
+				for (int y = 0; y < 8; y++){
+					if (board[x][y].state == SETTLED){
+						explode_object(&board[x][y]);
+					}
+				}
+			}
 			//explode matches:
 			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
 			//moves do local checks and mark the 2 nearest matching objects as ANIMATING along with the moved object
@@ -1221,12 +1240,13 @@ void main(void){
 						glStencilMask(0xff);
 						glEnable(GL_LIGHTING);
 
+						glBindBuffer(GL_ARRAY_BUFFER,mi->model->vertices);
 						glEnableClientState(GL_VERTEX_ARRAY);
 						glEnableClientState(GL_NORMAL_ARRAY);
 						glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-						glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->position);
-						glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->normal);
-						glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&mi->model->vertices->texcoord);
+						glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,position));
+						glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,normal));
+						glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,texcoord));
 
 						for (int i = 0; i < mi->model->materialCount; i++){
 							glBindTexture(GL_TEXTURE_2D,mi->model->materials[i].textureId);
@@ -1234,7 +1254,8 @@ void main(void){
 						}
 
 						glStencilFunc(GL_NOTEQUAL,1,0xff);
-						glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)mi->model->expandedPositions);
+						glBindBuffer(GL_ARRAY_BUFFER,mi->model->expandedPositions);
+						glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)0);
 						glDisable(GL_TEXTURE_2D);
 						glDisable(GL_LIGHTING);
 						if (mi == grabbedObject){
@@ -1273,12 +1294,13 @@ void main(void){
 
 					glEnable(GL_LIGHTING);
 
+					glBindBuffer(GL_ARRAY_BUFFER,f->model->vertices);
 					glEnableClientState(GL_VERTEX_ARRAY);
 					glEnableClientState(GL_NORMAL_ARRAY);
 					glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->position);
-					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->normal);
-					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)&f->model->vertices->texcoord);
+					glVertexPointer(3,GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,position));
+					glNormalPointer(GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,normal));
+					glTexCoordPointer(2,GL_FLOAT,sizeof(ModelVertex),(void *)offsetof(ModelVertex,texcoord));
 
 					for (int i = 0; i < f->model->materialCount; i++){
 						glBindTexture(GL_TEXTURE_2D,f->model->materials[i].textureId);
@@ -1296,6 +1318,9 @@ void main(void){
 			glBindTexture(GL_TEXTURE_2D,font.id);
 			set_font_height(1.0f);
 			draw_text_shadow_centered_alpha(8.0f,4.5f,20,zoneTitleAlpha,"Zone 1: The Beach");
+			char fpsStr[32];
+			sprintf(fpsStr,"%d",fps);
+			draw_text_shadow(0,8.4f,20,fpsStr);
 
 			glDisable(GL_TEXTURE_2D);
 		}
@@ -1323,6 +1348,14 @@ void main(void){
 			glVertex3f(16,9,25);
 			glVertex3f(0,9,25);
 			glEnd();
+		}
+
+		frames++;
+		frameTime += dt;
+		if (frameTime > 0.5f){
+			fps = frames / frameTime;
+			frameTime = 0.0f;
+			frames = 0;
 		}
 
 		glCheckError();
