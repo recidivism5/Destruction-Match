@@ -4,8 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <linmath.h>
 #include <stb_image.h>
-#include <stb_rect_pack.h>
-#include <stb_truetype.h>
+#include <ttf2mesh.h>
 
 #include <base.h>
 
@@ -15,10 +14,8 @@ typedef struct {
 } Texture;
 
 typedef struct {
-	GLuint id;
-	int width;
-	stbtt_bakedchar *bakedChars;
-} FontAtlas;
+	int offset, count;
+} VertexOffsetCount;
 
 GLenum glCheckError_(const char *file, int line);
 #define glCheckError() glCheckError_(FILENAME, __LINE__)
@@ -30,8 +27,6 @@ GLuint new_texture(unsigned char *pixels, int width, int height, bool interpolat
 void load_texture(Texture *t, char *name, bool interpolated);
 
 void delete_texture(GLuint id);
-
-void gen_font_atlas(FontAtlas *atlas, char *name, int height);
 
 void project_identity();
 

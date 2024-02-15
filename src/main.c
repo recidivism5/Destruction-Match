@@ -1,5 +1,6 @@
 #include <glutil.h>
 #include <alutil.h>
+#include <font.h>
 #include <perlin_noise.h>
 
 ////////////TYPES:
@@ -14,10 +15,6 @@ typedef struct {
 	GLuint textureId;
 	float roughness;
 } Material;
-
-typedef struct {
-	int offset, count;
-} VertexOffsetCount;
 
 typedef struct {
 	vec3 position;
@@ -78,7 +75,7 @@ ALCcontext *alcContext;
 
 ALuint bruh;
 
-FontAtlas font;
+Font font;
 
 FSRect screen;
 
@@ -231,23 +228,6 @@ void load_fractured_model(FracturedModel *model, char *name){
 	}
 	
 	fclose(f);
-}
-
-void delete_fractured_model(FracturedModel *model){
-	ASSERT(model->vertices);
-	free(model->vertices);
-	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
-		delete_texture(m->textureId);
-	}
-	ASSERT(model->materials);
-	free(model->materials);
-	ASSERT(model->objects);
-	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
-		ASSERT(obj->vertexOffsetCounts);
-		free(obj->vertexOffsetCounts);
-	}
-	free(model->objects);
-	memset(model,0,sizeof(*model));
 }
 
 void sub_viewport(float x, float y, float width, float height){
@@ -416,64 +396,7 @@ void set_font_height(float height){
 	fontScale = fontHeight / FONT_HEIGHT_PIX;
 }
 
-void draw_text(float x, float y, float z, char *text){
-	glBegin(GL_QUADS);
-	while (*text){
-		stbtt_bakedchar *bc = font.bakedChars+(*text)-' ';
-		FRect r = {
-			.left = x + fontScale*bc->xoff,
-			.top = y - fontScale*bc->yoff
-		};
-		r.right = r.left + fontScale*(float)(bc->x1-bc->x0);
-		r.bottom = r.top - fontScale*(float)(bc->y1-bc->y0);
-		glTexCoord2f((float)bc->x0/font.width,(float)bc->y1/font.width); glVertex3f(r.left,r.bottom,z);
-		glTexCoord2f((float)bc->x1/font.width,(float)bc->y1/font.width); glVertex3f(r.right,r.bottom,z);
-		glTexCoord2f((float)bc->x1/font.width,(float)bc->y0/font.width); glVertex3f(r.right,r.top,z);
-		glTexCoord2f((float)bc->x0/font.width,(float)bc->y0/font.width); glVertex3f(r.left,r.top,z);
-		x += fontScale*bc->xadvance;
-		text++;
-	}
-	glEnd();
-}
-
-void draw_text_centered(float x, float y, float z, char *text){
-	float width = 0.0f;
-	size_t len = strlen(text);
-	stbtt_bakedchar *bc;
-	for (size_t i = 0; i < len-1; i++){
-		bc = font.bakedChars+text[i]-' ';
-		width += fontScale*bc->xadvance;
-	}
-	bc = font.bakedChars+text[len-1]-' ';
-	width += fontScale*(bc->x1-bc->x0);
-	draw_text(x-width/2,y-fontHeight/4,z,text);
-}
-
-void draw_text_shadow(float x, float y, float z, char *text){
-	glColor3f(0,0,0);
-	float off = fontScale * 8.0f;
-	draw_text(x+off,y-off,z,text);
-	glColor3f(1,1,1);
-	draw_text(x,y,z+1,text);
-}
-
-void draw_text_shadow_centered(float x, float y, float z, char *text){
-	glColor3f(0,0,0);
-	float off = fontScale * 8.0f;
-	draw_text_centered(x+off,y-off,z,text);
-	glColor3f(1,1,1);
-	draw_text_centered(x,y,z+1,text);
-}
-
-void draw_text_shadow_centered_alpha(float x, float y, float z, float alpha, char *text){
-	glColor4f(0,0,0,alpha);
-	float off = fontScale * 8.0f;
-	draw_text_centered(x+off,y-off,z,text);
-	glColor4f(1,1,1,alpha);
-	draw_text_centered(x,y,z+1,text);
-}
-
-void draw_button(float x, float y, float z, char *text){
+/*void draw_button(float x, float y, float z, char *text){
 	glBindTexture(GL_TEXTURE_2D,wideButtonDark.id);
 	float aspect = 293.0f/75.0f;
 	float width = fontHeight * aspect;
@@ -488,7 +411,7 @@ void draw_button(float x, float y, float z, char *text){
 	glEnd();
 	glBindTexture(GL_TEXTURE_2D,font.id);
 	draw_text_shadow_centered(x+width/2,y+fontHeight/2,z+1,text);
-}
+}*/
 
 void ui_begin(float y){
 	uiY = y;
@@ -500,7 +423,7 @@ void ui_end(){
 	glDisable(GL_TEXTURE_2D);
 }
 
-bool ui_button(char *text){
+/*bool ui_button(char *text){
 	float aspect = 293.0f/75.0f;
 	FSRect rect = {
 		.width = fontHeight * aspect,
@@ -521,7 +444,7 @@ bool ui_button(char *text){
 	draw_text_shadow_centered(rect.x+rect.width/2,rect.y+fontHeight/2,3,text);
 	uiY -= 1.5f;
 	return hovered && justClicked;
-}
+}*/
 
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
@@ -682,7 +605,7 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	gen_font_atlas(&font,"Nunito-Regular",FONT_HEIGHT_PIX);
+	load_font(&font,"comicz");
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
@@ -800,13 +723,20 @@ void main(void){
 				}
 			}
 
-			glEnable(GL_TEXTURE_2D);
-			glBindTexture(GL_TEXTURE_2D,font.id);
-			set_font_height(2.0f);
-			draw_text_shadow(3,6,1,"Match Mayhem");
-			glDisable(GL_TEXTURE_2D);
+			glBindBuffer(GL_ARRAY_BUFFER,font.mesh2d);
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glVertexPointer(2,GL_FLOAT,sizeof(vec2),(void *)0);
+			glColor3f(1,1,1);
+			ttf_glyph_t *t = font.ttf->glyphs+ttf_find_glyph(font.ttf,'A');
+			VertexOffsetCount *c = font.voc + 'A' - '!';
+			glPushMatrix();
+			glTranslatef(4,4,10);
+			glScalef(2,2,1);
+			glDrawArrays(GL_TRIANGLES,c->offset,c->count);
+			glDisableClientState(GL_VERTEX_ARRAY);
+			glPopMatrix();
 
-			ui_begin(4.5f);
+			/*ui_begin(4.5f);
 			if (targetGameState == PLAYING){
 				justClicked = false;
 			}
@@ -821,7 +751,7 @@ void main(void){
 			if (ui_button("Quit")){
 				glfwSetWindowShouldClose(gwindow,GLFW_TRUE);
 			}
-			ui_end();
+			ui_end();*/
 		} else if (gameState == PLAYING){
 			for (int x = 0; x < 8; x++){
 				for (int y = 0; y < 8; y++){
@@ -941,6 +871,7 @@ void main(void){
 				}
 				//remove matches:
 				bool found;
+				int iterations = 0;
 				do {
 					//need to ensure at least 1 potential match here
 					//find pairs of UNPLACED:
@@ -1077,7 +1008,9 @@ void main(void){
 							}
 						}
 					}
+					iterations++;
 				} while (found);
+				printf("iterations: %d\n",iterations);
 			}
 			//update:
 			float unplacedInc = cellWidth*1.2f;
@@ -1313,15 +1246,6 @@ void main(void){
 				}
 			}
 			glDisable(GL_LIGHTING);
-
-			glLoadIdentity();
-			glBindTexture(GL_TEXTURE_2D,font.id);
-			set_font_height(1.0f);
-			draw_text_shadow_centered_alpha(8.0f,4.5f,20,zoneTitleAlpha,"Zone 1: The Beach");
-			char fpsStr[32];
-			sprintf(fpsStr,"%d",fps);
-			draw_text_shadow(0,8.4f,20,fpsStr);
-
 			glDisable(GL_TEXTURE_2D);
 		}
 
@@ -1353,7 +1277,7 @@ void main(void){
 		frames++;
 		frameTime += dt;
 		if (frameTime > 0.5f){
-			fps = frames / frameTime;
+			fps = (int)roundf((float)frames / frameTime);
 			frameTime = 0.0f;
 			frames = 0;
 		}

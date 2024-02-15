@@ -45,40 +45,6 @@ void delete_texture(GLuint id){
 	glDeleteTextures(1,&id);
 }
 
-void gen_font_atlas(FontAtlas *atlas, char *name, int height){
-	int size;
-	unsigned char *ttf = load_file(&size,"res/fonts/%s.ttf",name);
-	atlas->width = 256;
-	int numChars = '~'-' '+1;
-	atlas->bakedChars = malloc(numChars * sizeof(*atlas->bakedChars));
-	ASSERT(atlas->bakedChars);
-	unsigned char *bmp;
-	while (1){
-		bmp = malloc(atlas->width*atlas->width);
-		ASSERT(bmp);
-		int r = stbtt_BakeFontBitmap(ttf,0,(float)height,bmp,atlas->width,atlas->width,' ',numChars,atlas->bakedChars);
-		if (r > 0) break;
-		free(bmp);
-		atlas->width *= 2;
-	}
-
-	unsigned char *pixels = malloc(atlas->width * atlas->width * 4);
-	ASSERT(pixels);
-	for (int i = 0; i < atlas->width * atlas->width; i++){
-		unsigned char *p = pixels + i*4;
-		p[0] = 255;
-		p[1] = 255;
-		p[2] = 255;
-		p[3] = bmp[i];
-	}
-
-	atlas->id = new_texture(pixels,atlas->width,atlas->width,true);
-
-	free(pixels);
-	free(ttf);
-	free(bmp);
-}
-
 void project_identity(){
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();

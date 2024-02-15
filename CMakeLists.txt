@@ -21,11 +21,9 @@ add_subdirectory(third_party/openal-soft)
 
 add_subdirectory(third_party/stb_image)
 
-add_subdirectory(third_party/stb_rect_pack)
-
-add_subdirectory(third_party/stb_truetype)
-
 add_subdirectory(third_party/stb_vorbis)
+
+add_subdirectory(third_party/ttf2mesh)
 
 include_directories(third_party/tinydir)
 
@@ -48,7 +46,7 @@ if(MSVC)
 	)
 endif()
 
-target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL stb_image stb_rect_pack stb_truetype stb_vorbis whereami)
+target_link_libraries(${PROJECT_NAME} Boxer ${OPENGL_LIBRARIES} glfw glad OpenAL stb_image stb_vorbis ttf2mesh whereami)
 if( MSVC )
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 
