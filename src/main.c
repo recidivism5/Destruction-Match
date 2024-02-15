@@ -1,35 +1,10 @@
 #include <glutil.h>
 #include <alutil.h>
 #include <font.h>
+#include <fmf.h>
 #include <perlin_noise.h>
 
 ////////////TYPES:
-
-typedef struct {
-	vec3 position;
-	vec3 normal;
-	vec2 texcoord;
-} ModelVertex;
-
-typedef struct {
-	GLuint textureId;
-	float roughness;
-} Material;
-
-typedef struct {
-	vec3 position;
-	VertexOffsetCount *vertexOffsetCounts;
-} FracturedObject;
-
-typedef struct {
-	int vertexCount;
-	GLuint vertices;
-	GLuint expandedPositions;
-	int materialCount;
-	Material *materials;
-	int objectCount;
-	FracturedObject *objects;
-} FracturedModel;
 
 typedef enum {
 	UNPLACED,
@@ -160,74 +135,6 @@ void init_bubbles(){
 		bubbles[i][0] = rand_float(0.0f,16.0f);
 		bubbles[i][1] = rand_float(0.0f,9.0f);
 	}
-}
-
-void load_fractured_model(FracturedModel *model, char *name){
-	char *path = local_path_to_absolute("res/%s.fmf",name);
-	FILE *f = fopen(path,"rb");
-	if (!f){
-		fatal_error("Failed to open model: %s",path);
-	}
-	
-	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
-	ASSERT(model->vertexCount < 65536);
-	ModelVertex *vertices = malloc(model->vertexCount * sizeof(*vertices));
-	ASSERT(vertices);
-	vec3 *expandedPositions = malloc(model->vertexCount * sizeof(*expandedPositions));
-	ASSERT(expandedPositions);
-	ASSERT(1==fread(vertices,model->vertexCount * sizeof(*vertices),1,f));
-	for (int i = 0; i < model->vertexCount; i++){
-		vec3 *ev = expandedPositions+i;
-		ModelVertex *v = vertices+i;
-		vec3_copy(v->position,(float *)ev);
-		vec3 snorm;
-		vec3_scale(v->normal,0.025f,snorm);
-		vec3_add((float *)ev,snorm,(float *)ev);
-	}
-	glGenBuffers(1,&model->vertices);
-	glBindBuffer(GL_ARRAY_BUFFER,model->vertices);
-	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*vertices),vertices,GL_STATIC_DRAW);
-	glGenBuffers(1,&model->expandedPositions);
-	glBindBuffer(GL_ARRAY_BUFFER,model->expandedPositions);
-	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*expandedPositions),expandedPositions,GL_STATIC_DRAW);
-	free(vertices);
-	free(expandedPositions);
-	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
-	ASSERT(0 < model->materialCount && model->materialCount < 256);
-	model->materials = malloc(model->materialCount * sizeof(*model->materials));
-	ASSERT(model->materials);
-	for (Material *m = model->materials; m < model->materials + model->materialCount; m++){
-		m->roughness = 0.0f;//bruh
-
-		int compressedSize;
-		ASSERT(1==fread(&compressedSize,sizeof(compressedSize),1,f));
-		ASSERT(0 < compressedSize && compressedSize < 524288);
-		unsigned char *compressedData = malloc(compressedSize);
-		ASSERT(1==fread(compressedData,compressedSize,1,f));
-		int width,height,comp;
-		stbi_set_flip_vertically_on_load(true);
-		unsigned char *pixels = stbi_load_from_memory(compressedData,compressedSize,&width,&height,&comp,4);
-		m->textureId = new_texture(pixels,width,height,false);
-		free(compressedData);
-		free(pixels);
-	}
-	ASSERT(1==fread(&model->objectCount,sizeof(model->objectCount),1,f));
-	ASSERT(model->objectCount > 0 && model->objectCount < 256);
-	model->objects = malloc(model->objectCount * sizeof(*model->objects));
-	ASSERT(model->objects);
-	int vertexOffset = 0;
-	for (FracturedObject *obj = model->objects; obj < model->objects+model->objectCount; obj++){
-		ASSERT(1==fread(obj->position,sizeof(obj->position),1,f));
-		obj->vertexOffsetCounts = malloc(model->materialCount * sizeof(*obj->vertexOffsetCounts));
-		for (VertexOffsetCount *vic = obj->vertexOffsetCounts; vic < obj->vertexOffsetCounts + model->materialCount; vic++){
-			vic->offset = vertexOffset;
-			ASSERT(1==fread(&vic->count,sizeof(vic->count),1,f));
-			ASSERT(vic->count <= model->vertexCount-vertexOffset);
-			vertexOffset += vic->count;
-		}
-	}
-	
-	fclose(f);
 }
 
 void sub_viewport(float x, float y, float width, float height){
@@ -723,18 +630,36 @@ void main(void){
 				}
 			}
 
-			glBindBuffer(GL_ARRAY_BUFFER,font.mesh2d);
+			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat mat_shininess[] = { 50.0 };
+			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+			GLfloat light_ambient[] = { 1.5, 1.5, 1.5, 1.0 };
+			GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+			GLfloat light_position[] = { 1.0, 1.0, 3.0, 0.0 };
+			glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+			glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+			glEnable(GL_LIGHT0);
+			glEnable(GL_LIGHTING);
+			glBindBuffer(GL_ARRAY_BUFFER,font.mesh3d);
 			glEnableClientState(GL_VERTEX_ARRAY);
-			glVertexPointer(2,GL_FLOAT,sizeof(vec2),(void *)0);
+			glEnableClientState(GL_NORMAL_ARRAY);
+			glVertexPointer(3,GL_FLOAT,sizeof(NormalVertex),(void *)0);
+			glNormalPointer(GL_FLOAT,sizeof(NormalVertex),(void *)offsetof(NormalVertex,normal));
 			glColor3f(1,1,1);
-			ttf_glyph_t *t = font.ttf->glyphs+ttf_find_glyph(font.ttf,'A');
-			VertexOffsetCount *c = font.voc + 'A' - '!';
+			VertexOffsetCount *c = font.voc3d + 'A' - '!';
 			glPushMatrix();
-			glTranslatef(4,4,10);
-			glScalef(2,2,1);
+			glTranslatef(4,4,20);
+			glRotated(100*t0,0,1,0);
+			glScalef(4,4,1);
 			glDrawArrays(GL_TRIANGLES,c->offset,c->count);
 			glDisableClientState(GL_VERTEX_ARRAY);
+			glDisableClientState(GL_NORMAL_ARRAY);
 			glPopMatrix();
+			glDisable(GL_LIGHTING);
 
 			/*ui_begin(4.5f);
 			if (targetGameState == PLAYING){

@@ -5,7 +5,7 @@
 
 typedef struct {
     GLuint mesh2d, mesh3d;
-    VertexOffsetCount voc[95];
+    VertexOffsetCount voc2d[95], voc3d[95];
     ttf_t *ttf;
 } Font;
 

@@ -17,6 +17,11 @@ typedef struct {
 	int offset, count;
 } VertexOffsetCount;
 
+typedef struct {
+	vec3 position;
+	vec3 normal;
+} NormalVertex;
+
 GLenum glCheckError_(const char *file, int line);
 #define glCheckError() glCheckError_(FILENAME, __LINE__)
 
