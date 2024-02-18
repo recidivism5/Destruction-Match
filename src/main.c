@@ -85,10 +85,7 @@ float timeRemaining;
 int targetItems;
 int totalItems;
 
-float fontHeight;
 float fontScale;
-
-#define FONT_HEIGHT_PIX 400
 
 enum {
 	ON_MENU,
@@ -298,9 +295,90 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glEnd();
 }
 
-void set_font_height(float height){
-	fontHeight = height;
-	fontScale = fontHeight / FONT_HEIGHT_PIX;
+void draw_text_3d(float x, float y, char *text){
+	glEnable(GL_STENCIL_TEST);
+	glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
+	glStencilFunc(GL_ALWAYS,1,0xff);
+	glStencilMask(0xff);
+	glEnable(GL_LIGHTING);
+	glBindBuffer(GL_ARRAY_BUFFER,font.v3d);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glVertexPointer(3,GL_FLOAT,sizeof(NormalVertex),(void *)0);
+	glNormalPointer(GL_FLOAT,sizeof(NormalVertex),(void *)offsetof(NormalVertex,normal));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,font.ind3d);
+	glColor3f(1,1,1);
+	int len = (int)strlen(text);
+	float width = 0.0f;
+	int id;
+	ttf_glyph_t *g;
+	id = ttf_find_glyph(font.ttf,'t');
+	ASSERT(id >= 0);
+	float spaceWidth = font.ttf->glyphs[id].advance;
+	for (int i = 0; i < len-1; i++){
+		if (text[i] == ' '){
+			width += spaceWidth;
+		} else {
+			id = ttf_find_glyph(font.ttf,text[i]);
+			ASSERT(id >= 0);
+			g = font.ttf->glyphs + id;
+			width += g->advance;
+		}
+	}
+	if (text[len-1] != ' '){
+		id = ttf_find_glyph(font.ttf,text[len-1]);
+		ASSERT(id >= 0);
+		g = font.ttf->glyphs + id;
+		width += g->xbounds[1]-g->xbounds[0];
+		width *= fontScale;
+	}
+	float px = x;
+	for (int i = 0; i < len; i++){
+		if (text[i] == ' '){
+			px += spaceWidth * fontScale;
+		} else {
+			int id = ttf_find_glyph(font.ttf,text[i]);
+			ASSERT(id >= 0);
+			ttf_glyph_t *g = font.ttf->glyphs + id;
+			VertexOffsetCount *c = font.voc3d + text[i] - '!';
+			glPushMatrix();
+			glTranslatef(px-width/2,y,20);
+			glRotated(20*sin(t0),0,1,0);
+			glRotated(5*cos(t0),1,0,0);
+			glScalef(fontScale,fontScale,1);
+			glDrawElements(GL_TRIANGLES,c->count,GL_UNSIGNED_INT,(void *)(c->offset*sizeof(int)));
+			glPopMatrix();
+			px += g->advance * fontScale;
+		}
+	}
+	px = x;
+	glDisableClientState(GL_NORMAL_ARRAY);
+	glDisable(GL_LIGHTING);
+	glColor3f(0,0,0);
+	glStencilFunc(GL_NOTEQUAL,1,0xff);
+	glBindBuffer(GL_ARRAY_BUFFER,font.exp3d);
+	glVertexPointer(3,GL_FLOAT,sizeof(vec3),(void *)0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,font.expind3d);
+	for (int i = 0; i < len; i++){
+		if (text[i] == ' '){
+			px += spaceWidth * fontScale;
+		} else {
+			int id = ttf_find_glyph(font.ttf,text[i]);
+			ASSERT(id >= 0);
+			ttf_glyph_t *g = font.ttf->glyphs + id;
+			VertexOffsetCount *c = font.voc3d + text[i] - '!';
+			glPushMatrix();
+			glTranslatef(px-width/2,y,20);
+			glRotated(20*sin(t0),0,1,0);
+			glRotated(5*cos(t0),1,0,0);
+			glScalef(fontScale,fontScale,1);
+			glDrawElements(GL_TRIANGLES,c->count,GL_UNSIGNED_INT,(void *)(c->offset*sizeof(int)));
+			glPopMatrix();
+			px += g->advance * fontScale;
+		}
+	}
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisable(GL_STENCIL_TEST);
 }
 
 /*void draw_button(float x, float y, float z, char *text){
@@ -318,7 +396,7 @@ void set_font_height(float height){
 	glEnd();
 	glBindTexture(GL_TEXTURE_2D,font.id);
 	draw_text_shadow_centered(x+width/2,y+fontHeight/2,z+1,text);
-}*/
+}
 
 void ui_begin(float y){
 	uiY = y;
@@ -328,7 +406,7 @@ void ui_begin(float y){
 
 void ui_end(){
 	glDisable(GL_TEXTURE_2D);
-}
+}*/
 
 /*bool ui_button(char *text){
 	float aspect = 293.0f/75.0f;
@@ -512,7 +590,7 @@ void main(void){
 	srand((unsigned int)time(0));
 
 	//Init:
-	load_font(&font,"comicz");
+	load_font(&font,"VanillaExtractRegular");
 
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
@@ -634,7 +712,7 @@ void main(void){
 			GLfloat mat_shininess[] = { 50.0 };
 			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
 			glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-			GLfloat light_ambient[] = { 1.5, 1.5, 1.5, 1.0 };
+			GLfloat light_ambient[] = { 1.0, 1.0, 1.0, 1.0 };
 			GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
 			GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
 			GLfloat light_position[] = { 1.0, 1.0, 3.0, 0.0 };
@@ -643,23 +721,8 @@ void main(void){
 			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
 			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 			glEnable(GL_LIGHT0);
-			glEnable(GL_LIGHTING);
-			glBindBuffer(GL_ARRAY_BUFFER,font.mesh3d);
-			glEnableClientState(GL_VERTEX_ARRAY);
-			glEnableClientState(GL_NORMAL_ARRAY);
-			glVertexPointer(3,GL_FLOAT,sizeof(NormalVertex),(void *)0);
-			glNormalPointer(GL_FLOAT,sizeof(NormalVertex),(void *)offsetof(NormalVertex,normal));
-			glColor3f(1,1,1);
-			VertexOffsetCount *c = font.voc3d + 'A' - '!';
-			glPushMatrix();
-			glTranslatef(4,4,20);
-			glRotated(100*t0,0,1,0);
-			glScalef(4,4,1);
-			glDrawArrays(GL_TRIANGLES,c->offset,c->count);
-			glDisableClientState(GL_VERTEX_ARRAY);
-			glDisableClientState(GL_NORMAL_ARRAY);
-			glPopMatrix();
-			glDisable(GL_LIGHTING);
+			fontScale = 1.0f;
+			draw_text_3d(8.0f,6.0f,"Match Mayhem");
 
 			/*ui_begin(4.5f);
 			if (targetGameState == PLAYING){

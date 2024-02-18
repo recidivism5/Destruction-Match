@@ -55,6 +55,10 @@ void vec2_clamp_length(vec2 a, float l, vec2 dst){
 	vec2_set_length(a,len,dst);
 }
 
+bool vec3_equal(vec3 a, vec3 b){
+	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
+}
+
 void vec3_copy(vec3 src, vec3 dst){
 	memcpy(dst,src,sizeof(vec3));
 }
@@ -93,6 +97,13 @@ void vec3_div(vec3 a, vec3 b, vec3 dst){
 	dst[0] = a[0] / b[0];
 	dst[1] = a[1] / b[1];
 	dst[2] = a[2] / b[2];
+}
+
+void vec3_divs(vec3 a, float s, vec3 dst){
+	float invS = 1.0f / s;
+	dst[0] = a[0] * invS;
+	dst[1] = a[1] * invS;
+	dst[2] = a[2] * invS;
 }
 
 float vec3_dot(vec3 a, vec3 b){

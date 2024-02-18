@@ -4,8 +4,11 @@ void load_font(Font *f, char *name){
     ASSERT(TTF_DONE == ttf_load_from_file(local_path_to_absolute("res/fonts/%s.ttf",name),&f->ttf,false));
     ASSERT(f->ttf);
     
-    int vcount2d = 0;
-    int vcount3d = 0;
+    int nv2d = 0;
+    int nind2d = 0;
+    int nv3d = 0;
+    int nexp3d = 0;
+    int nind3d = 0;
     for (char c = '!'; c < '~'; c++){
         int i = ttf_find_glyph(f->ttf,(uint32_t)c);
         ASSERT(i >= 0);
@@ -14,26 +17,39 @@ void load_font(Font *f, char *name){
         ttf_mesh_t *mesh2d = 0;
         ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT));
         ASSERT(mesh2d);
-        f->voc2d[c-'!'].offset = vcount2d;
+        f->voc2d[c-'!'].offset = nind2d;
         f->voc2d[c-'!'].count = mesh2d->nfaces*3;
-        vcount2d += mesh2d->nfaces * 3;
+        nind2d += mesh2d->nfaces*3;
+        nv2d += mesh2d->nvert;
         ttf_free_mesh(mesh2d);
 
         ttf_mesh3d_t *mesh3d = 0;
         ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT,1.0f));
         ASSERT(mesh3d);
-        f->voc3d[c-'!'].offset = vcount3d;
+        f->voc3d[c-'!'].offset = nind3d;
         f->voc3d[c-'!'].count = mesh3d->nfaces*3;
-        vcount3d += mesh3d->nfaces * 3;
+        nind3d += mesh3d->nfaces*3;
+        nv3d += mesh3d->nvert;
+        nexp3d += mesh3d->nvert/3;
         ttf_free_mesh3d(mesh3d);
     }
-
-    vec2 *v2d = malloc(vcount2d * sizeof(*v2d));
+    vec2 *v2d = malloc(nv2d * sizeof(*v2d));
     ASSERT(v2d);
-    NormalVertex *v3d = malloc(vcount3d * sizeof(*v3d));
+    int *ind2d = malloc(nind2d * sizeof(*ind2d));
+    ASSERT(ind2d);
+    NormalVertex *v3d = malloc(nv3d * sizeof(*v3d));
     ASSERT(v3d);
-    vcount2d = 0;
-    vcount3d = 0;
+    vec3 *exp3d = malloc(nv3d * sizeof(*exp3d));
+    ASSERT(exp3d);
+    int *ind3d = malloc(nind3d * sizeof(*ind3d));
+    ASSERT(ind3d);
+    int *expind3d = malloc(nind3d * sizeof(*expind3d));
+    ASSERT(expind3d);
+    nv2d = 0;
+    nind2d = 0;
+    nv3d = 0;
+    nexp3d = 0;
+    nind3d = 0;
     for (char c = '!'; c < '~'; c++){
         int i = ttf_find_glyph(f->ttf,(uint32_t)c);
         ASSERT(i >= 0);
@@ -42,51 +58,128 @@ void load_font(Font *f, char *name){
         ttf_mesh_t *mesh2d = 0;
         ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT));
         ASSERT(mesh2d);
+        memcpy(v2d+nv2d,mesh2d->vert,mesh2d->nvert*sizeof(*v2d));
         for (int j = 0; j < mesh2d->nfaces; j++){
-            v2d[vcount2d+0][0] = mesh2d->vert[mesh2d->faces[j].v1].x;
-            v2d[vcount2d+0][1] = mesh2d->vert[mesh2d->faces[j].v1].y;
-            v2d[vcount2d+1][0] = mesh2d->vert[mesh2d->faces[j].v2].x;
-            v2d[vcount2d+1][1] = mesh2d->vert[mesh2d->faces[j].v2].y;
-            v2d[vcount2d+2][0] = mesh2d->vert[mesh2d->faces[j].v3].x;
-            v2d[vcount2d+2][1] = mesh2d->vert[mesh2d->faces[j].v3].y;
-            vcount2d += 3;
+            int *f = &mesh2d->faces[j].v1;
+            for (int k = 0; k < 3; k++){
+                ASSERT(f[k] >= 0 && f[k] < mesh2d->nvert);
+                ind3d[nind2d+j*3+k] = f[k] + nv2d;
+            }
         }
+        nv2d += mesh2d->nvert;
+        nind2d += mesh2d->nfaces*3;
         ttf_free_mesh(mesh2d);
 
         ttf_mesh3d_t *mesh3d = 0;
         ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT,1.0f));
         ASSERT(mesh3d);
-        for (int j = 0; j < mesh3d->nfaces; j++){
-            v3d[vcount3d+0].position[0] = mesh3d->vert[mesh3d->faces[j].v1].x;
-            v3d[vcount3d+0].position[1] = mesh3d->vert[mesh3d->faces[j].v1].y;
-            v3d[vcount3d+0].position[2] = mesh3d->vert[mesh3d->faces[j].v1].z;
-            v3d[vcount3d+0].normal[0] = mesh3d->normals[mesh3d->faces[j].v1].x;
-            v3d[vcount3d+0].normal[1] = mesh3d->normals[mesh3d->faces[j].v1].y;
-            v3d[vcount3d+0].normal[2] = mesh3d->normals[mesh3d->faces[j].v1].z;
-            v3d[vcount3d+1].position[0] = mesh3d->vert[mesh3d->faces[j].v2].x;
-            v3d[vcount3d+1].position[1] = mesh3d->vert[mesh3d->faces[j].v2].y;
-            v3d[vcount3d+1].position[2] = mesh3d->vert[mesh3d->faces[j].v2].z;
-            v3d[vcount3d+1].normal[0] = mesh3d->normals[mesh3d->faces[j].v2].x;
-            v3d[vcount3d+1].normal[1] = mesh3d->normals[mesh3d->faces[j].v2].y;
-            v3d[vcount3d+1].normal[2] = mesh3d->normals[mesh3d->faces[j].v2].z;
-            v3d[vcount3d+2].position[0] = mesh3d->vert[mesh3d->faces[j].v3].x;
-            v3d[vcount3d+2].position[1] = mesh3d->vert[mesh3d->faces[j].v3].y;
-            v3d[vcount3d+2].position[2] = mesh3d->vert[mesh3d->faces[j].v3].z;
-            v3d[vcount3d+2].normal[0] = mesh3d->normals[mesh3d->faces[j].v3].x;
-            v3d[vcount3d+2].normal[1] = mesh3d->normals[mesh3d->faces[j].v3].y;
-            v3d[vcount3d+2].normal[2] = mesh3d->normals[mesh3d->faces[j].v3].z;
-            vcount3d += 3;
+        for (int j = 0; j < mesh3d->nvert; j++){
+            vec3_copy(&mesh3d->vert[j].x,v3d[nv3d+j].position);
+            vec3_copy(&mesh3d->normals[j].x,v3d[nv3d+j].normal);
         }
+        for (int j = 0; j < mesh3d->nfaces; j++){
+            int *f = &mesh3d->faces[j].v1;
+            for (int k = 0; k < 3; k++){
+                ASSERT(f[k] >= 0 && f[k] < mesh3d->nvert);
+                ind3d[nind3d+j*3+k] = f[k] + nv3d;
+            }
+        }
+        int uniqueMax = mesh3d->nvert/3;
+        vec3 *unique = exp3d + nexp3d;
+        int uniqueCount = 0;
+        for (int j = 0; j < mesh3d->nvert; j++){
+            int k;
+            for (k = 0; k < uniqueCount; k++){
+                if (vec3_equal(unique[k],&mesh3d->vert[j].x)){
+                    goto L0;
+                }
+            }
+            ASSERT(uniqueCount < uniqueMax);
+            vec3_copy(&mesh3d->vert[j].x,unique[uniqueCount++]);
+            L0:;
+        }
+        ASSERT(uniqueCount == uniqueMax);
+        int *ind = expind3d + nind3d;
+        for (int j = 0; j < mesh3d->nfaces; j++){
+            int *ip = &mesh3d->faces[j].v1;
+            for (int k = 0; k < 3; k++){
+                for (int m = 0; m < uniqueCount; m++){
+                    if (vec3_equal(&mesh3d->vert[ip[k]].x,unique[m])){
+                        ind[j*3+k] = m + nexp3d;
+                        goto L1;
+                    }
+                }
+                ASSERT(0 && "vertex not found");
+                L1:;
+            }
+        }
+        for (int j = 0; j < uniqueCount; j++){
+            //for each unique, we need to average its UNIQUE normals //this is pretty good, but I think
+            //weighting: https://stackoverflow.com/questions/45477806/general-method-for-calculating-smooth-vertex-normals-with-100-smoothness
+            //will fix the last little jaggies
+            vec3 unorms[3];
+            int count = 0;
+            for (int k = 0; k < mesh3d->nfaces; k++){
+                int *ip = &mesh3d->faces[k].v1;
+                for (int m = 0; m < 3; m++){
+                    if (vec3_equal(&mesh3d->vert[ip[m]].x,unique[j])){
+                        float *np = &mesh3d->normals[ip[m]].x;
+                        for (int l = 0; l < COUNT(unorms); l++){
+                            if (vec3_equal(np,unorms[l])){
+                                goto L2;
+                            }
+                        }
+                        ASSERT(count < 3);
+                        vec3_copy(np,unorms[count++]);
+                        goto L2;
+                    }
+                }
+                L2:;
+            }
+            ASSERT(count > 0);
+            if (count > 1){
+                vec3_add(unorms[0],unorms[1],unorms[0]);
+                if (count == 3) vec3_add(unorms[0],unorms[2],unorms[0]);
+                vec3_divs(unorms[0],(float)count,unorms[0]);
+            }
+            vec3_set_length(unorms[0],0.05f,unorms[0]);
+            vec3_add(unique[j],unorms[0],unique[j]);
+        }
+
+        nv3d += mesh3d->nvert;
+        nexp3d += uniqueCount;
+        nind3d += mesh3d->nfaces*3;
+
         ttf_free_mesh3d(mesh3d);
     }
 
-    glGenBuffers(1,&f->mesh2d);
-    glBindBuffer(GL_ARRAY_BUFFER,f->mesh2d);
-    glBufferData(GL_ARRAY_BUFFER,vcount2d*sizeof(*v2d),v2d,GL_STATIC_DRAW);
+    glGenBuffers(1,&f->v2d);
+    glBindBuffer(GL_ARRAY_BUFFER,f->v2d);
+    glBufferData(GL_ARRAY_BUFFER,nv2d*sizeof(*v2d),v2d,GL_STATIC_DRAW);
     free(v2d);
 
-    glGenBuffers(1,&f->mesh3d);
-    glBindBuffer(GL_ARRAY_BUFFER,f->mesh3d);
-    glBufferData(GL_ARRAY_BUFFER,vcount3d*sizeof(*v3d),v3d,GL_STATIC_DRAW);
+    glGenBuffers(1,&f->ind2d);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,f->ind2d);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,nind2d*sizeof(*ind2d),ind2d,GL_STATIC_DRAW);
+    free(ind2d);
+
+    glGenBuffers(1,&f->v3d);
+    glBindBuffer(GL_ARRAY_BUFFER,f->v3d);
+    glBufferData(GL_ARRAY_BUFFER,nv3d*sizeof(*v3d),v3d,GL_STATIC_DRAW);
     free(v3d);
+
+    glGenBuffers(1,&f->ind3d);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,f->ind3d);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,nind3d*sizeof(*ind3d),ind3d,GL_STATIC_DRAW);
+    free(ind3d);
+
+    glGenBuffers(1,&f->exp3d);
+    glBindBuffer(GL_ARRAY_BUFFER,f->exp3d);
+    glBufferData(GL_ARRAY_BUFFER,nexp3d*sizeof(*exp3d),exp3d,GL_STATIC_DRAW);
+    free(exp3d);
+
+    glGenBuffers(1,&f->expind3d);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,f->expind3d);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,nind3d*sizeof(*expind3d),expind3d,GL_STATIC_DRAW);
+    free(expind3d);
 }

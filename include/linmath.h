@@ -2,6 +2,7 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <stdbool.h>
 
 #define LERP(a,b,t) ((a) + (t)*((b)-(a)))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -40,6 +41,7 @@ float vec2_length(vec2 a);
 void vec2_set_length(vec2 v, float l, vec2 dst);
 void vec2_clamp_length(vec2 a, float l, vec2 dst);
 
+bool vec3_equal(vec3 a, vec3 b);
 void vec3_copy(vec3 src, vec3 dst);
 void vec3_add(vec3 a, vec3 b, vec3 dst);
 void vec3_sub(vec3 a, vec3 b, vec3 dst);
@@ -47,6 +49,7 @@ void vec3_negate(vec3 v, vec3 dst);
 void vec3_scale(vec3 v, float s, vec3 dst);
 void vec3_mul(vec3 a, vec3 b, vec3 dst);
 void vec3_div(vec3 a, vec3 b, vec3 dst);
+void vec3_divs(vec3, float s, vec3 dst);
 float vec3_dot(vec3 a, vec3 b);
 void vec3_cross(vec3 a, vec3 b, vec3 dst);
 float vec3_length(vec3 v);

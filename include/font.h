@@ -4,7 +4,7 @@
 #include <ttf2mesh.h>
 
 typedef struct {
-    GLuint mesh2d, mesh3d;
+    GLuint v2d, ind2d, v3d, ind3d, exp3d, expind3d;
     VertexOffsetCount voc2d[95], voc3d[95];
     ttf_t *ttf;
 } Font;
