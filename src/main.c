@@ -96,10 +96,11 @@ int totalItems;
 float fontScale;
 
 enum {
-	INTRO,
+	KEN_AND_DENNIS,
+	A_GAME_BY,
 	MENU,
 	PLAYING,
-} gameState = INTRO, targetGameState;
+} gameState = KEN_AND_DENNIS, targetGameState;
 
 float uiY;
 
@@ -502,6 +503,19 @@ void setup_text_lighting(float r, float g, float b){
 	glEnable(GL_LIGHT0);
 }
 
+void stay(int tgs){
+	static float stay = 0.0f;
+	if (fadeState == FADE_NONE){
+		if (stay < 1.0f){
+			stay += dt;
+		} else {
+			fadeState = FADE_OUT;
+			targetGameState = tgs;
+			stay = 0.0f;
+		}
+	}
+}
+
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
 	glfwTerminate();
@@ -698,6 +712,9 @@ void main(void){
 	targetItems = 100;
 	totalItems = 0;
 
+	fadeState = FADE_IN;
+	fadeAlpha = 1.0f;
+
 	//Loop:
 
 	t0 = glfwGetTime();
@@ -760,14 +777,8 @@ void main(void){
 			}
 		}
 
-		if (gameState == INTRO){
-			static float kdy = 6.0f;
-			static float stay = 0.0f;
-			kdy -= 10*dt;
-			if (stay < 1.0f && kdy < 0){
-				kdy = 0;
-				stay += dt;
-			}
+		if (gameState == KEN_AND_DENNIS){
+			stay(A_GAME_BY);
 
 			glEnable(GL_TEXTURE_2D);
 			glColor4f(1,1,1,1);
@@ -775,7 +786,7 @@ void main(void){
 			float width = 7.0f;
 			float height = width * (float)kenAndDennis.height/kenAndDennis.width;
 			glPushMatrix();
-			glTranslatef(7,2+kdy,0);
+			glTranslatef(7,2+6.0f*fadeAlpha*(fadeState==FADE_OUT ? -1 : 1),0);
 			glBegin(GL_QUADS);
 			glTexCoord2f(0,0); glVertex3f(0,0,0);
 			glTexCoord2f(1,0); glVertex3f(width,0,0);
@@ -791,14 +802,11 @@ void main(void){
 			setup_text_lighting(0.659f,0.725f,0.8f);
 			fontScale = 2.0f;
 			draw_text_3d(4.0f,3.0f,"C");
-
-			glColor4f(0,0,0,fabsf(kdy)/6.0f);
-			glBegin(GL_QUADS);
-			glVertex3f(0,0,25);
-			glVertex3f(16,0,25);
-			glVertex3f(16,9,25);
-			glVertex3f(0,9,25);
-			glEnd();
+		} else if (gameState == A_GAME_BY){
+			stay(MENU);
+			
+			fontScale = 0.5f;
+			draw_text_2d(8,4.5,"a game by ian bryant");
 		} else if (gameState == MENU){
 			glBegin(GL_QUADS);
 			glColor3f(1,0,0); glVertex3f(0,0,0);
