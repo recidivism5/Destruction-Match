@@ -114,36 +114,19 @@ void load_font(Font *f, char *name){
             }
         }
         for (int j = 0; j < uniqueCount; j++){
-            //for each unique, we need to average its UNIQUE normals //this is pretty good, but I think
-            //weighting: https://stackoverflow.com/questions/45477806/general-method-for-calculating-smooth-vertex-normals-with-100-smoothness
-            //will fix the last little jaggies
-            vec3 unorms[3];
-            int count = 0;
+            vec3 n = {0,0,0};
             for (int k = 0; k < mesh3d->nfaces; k++){
                 int *ip = &mesh3d->faces[k].v1;
                 for (int m = 0; m < 3; m++){
                     if (vec3_equal(&mesh3d->vert[ip[m]].x,unique[j])){
-                        float *np = &mesh3d->normals[ip[m]].x;
-                        for (int l = 0; l < COUNT(unorms); l++){
-                            if (vec3_equal(np,unorms[l])){
-                                goto L2;
-                            }
-                        }
-                        ASSERT(count < 3);
-                        vec3_copy(np,unorms[count++]);
-                        goto L2;
+                        vec3_add(n,&mesh3d->normals[ip[m]].x,n);
+                        break;
                     }
                 }
-                L2:;
             }
-            ASSERT(count > 0);
-            if (count > 1){
-                vec3_add(unorms[0],unorms[1],unorms[0]);
-                if (count == 3) vec3_add(unorms[0],unorms[2],unorms[0]);
-                vec3_divs(unorms[0],(float)count,unorms[0]);
-            }
-            vec3_set_length(unorms[0],0.05f,unorms[0]);
-            vec3_add(unique[j],unorms[0],unique[j]);
+            n[2] = 0.0f;
+            vec3_set_length(n,0.05f,n);
+            vec3_add(unique[j],n,unique[j]);
         }
 
         nv3d += mesh3d->nvert;
