@@ -1,6 +1,8 @@
 #include <font.h>
 
 void load_font(Font *f, char *name){
+    int quality = TTF_QUALITY_NORMAL;
+
     ASSERT(TTF_DONE == ttf_load_from_file(local_path_to_absolute("res/fonts/%s.ttf",name),&f->ttf,false));
     ASSERT(f->ttf);
     
@@ -15,7 +17,7 @@ void load_font(Font *f, char *name){
         ttf_glyph_t *g = f->ttf->glyphs+i;
 
         ttf_mesh_t *mesh2d = 0;
-        ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT));
+        ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,quality,TTF_FEATURES_DFLT));
         ASSERT(mesh2d);
         f->voc2d[c-'!'].offset = nind2d;
         f->voc2d[c-'!'].count = mesh2d->nfaces*3;
@@ -24,7 +26,7 @@ void load_font(Font *f, char *name){
         ttf_free_mesh(mesh2d);
 
         ttf_mesh3d_t *mesh3d = 0;
-        ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT,1.0f));
+        ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,quality,TTF_FEATURES_DFLT,1.0f));
         ASSERT(mesh3d);
         f->voc3d[c-'!'].offset = nind3d;
         f->voc3d[c-'!'].count = mesh3d->nfaces*3;
@@ -56,14 +58,17 @@ void load_font(Font *f, char *name){
         ttf_glyph_t *g = f->ttf->glyphs+i;
 
         ttf_mesh_t *mesh2d = 0;
-        ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT));
+        ASSERT(TTF_DONE == ttf_glyph2mesh(g,&mesh2d,quality,TTF_FEATURES_DFLT));
         ASSERT(mesh2d);
-        memcpy(v2d+nv2d,mesh2d->vert,mesh2d->nvert*sizeof(*v2d));
+        for (int j = 0; j < mesh2d->nvert; j++){
+            v2d[nv2d+j][0] = mesh2d->vert[j].x;
+            v2d[nv2d+j][1] = mesh2d->vert[j].y;
+        }
         for (int j = 0; j < mesh2d->nfaces; j++){
             int *f = &mesh2d->faces[j].v1;
             for (int k = 0; k < 3; k++){
                 ASSERT(f[k] >= 0 && f[k] < mesh2d->nvert);
-                ind3d[nind2d+j*3+k] = f[k] + nv2d;
+                ind2d[nind2d+j*3+k] = f[k] + nv2d;
             }
         }
         nv2d += mesh2d->nvert;
@@ -71,7 +76,7 @@ void load_font(Font *f, char *name){
         ttf_free_mesh(mesh2d);
 
         ttf_mesh3d_t *mesh3d = 0;
-        ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,TTF_QUALITY_HIGH,TTF_FEATURES_DFLT,1.0f));
+        ASSERT(TTF_DONE == ttf_glyph2mesh3d(g,&mesh3d,quality,TTF_FEATURES_DFLT,1.0f));
         ASSERT(mesh3d);
         for (int j = 0; j < mesh3d->nvert; j++){
             vec3_copy(&mesh3d->vert[j].x,v3d[nv3d+j].position);

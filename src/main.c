@@ -62,7 +62,15 @@ FracturedModelInstance board[8][8];//by column,row
 
 Fragment fragments[1024];
 
-Texture beachBackground, checker, frame, bubbleTexture, tubeFrontTexture, wideButtonDark, wideButtonLight;
+Texture 
+	kenAndDennis,
+	beachBackground,
+	checker,
+	frame,
+	bubbleTexture,
+	tubeFrontTexture,
+	wideButtonDark,
+	wideButtonLight;
 
 FracturedModel models[6];
 
@@ -88,9 +96,10 @@ int totalItems;
 float fontScale;
 
 enum {
-	ON_MENU,
+	INTRO,
+	MENU,
 	PLAYING,
-} gameState = ON_MENU, targetGameState;
+} gameState = INTRO, targetGameState;
 
 float uiY;
 
@@ -295,19 +304,7 @@ void draw_meter(float x, float r, float g, float b, float level){
 	glEnd();
 }
 
-void draw_text_3d(float x, float y, char *text){
-	glEnable(GL_STENCIL_TEST);
-	glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
-	glStencilFunc(GL_ALWAYS,1,0xff);
-	glStencilMask(0xff);
-	glEnable(GL_LIGHTING);
-	glBindBuffer(GL_ARRAY_BUFFER,font.v3d);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	glVertexPointer(3,GL_FLOAT,sizeof(NormalVertex),(void *)0);
-	glNormalPointer(GL_FLOAT,sizeof(NormalVertex),(void *)offsetof(NormalVertex,normal));
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,font.ind3d);
-	glColor3f(1,1,1);
+void draw_text_2d(float x, float y, char *text){
 	int len = (int)strlen(text);
 	float width = 0.0f;
 	int id;
@@ -332,6 +329,67 @@ void draw_text_3d(float x, float y, char *text){
 		width += g->xbounds[1]-g->xbounds[0];
 		width *= fontScale;
 	}
+	glColor3f(1,1,1);
+	glBindBuffer(GL_ARRAY_BUFFER,font.v2d);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glVertexPointer(2,GL_FLOAT,sizeof(vec2),(void *)0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,font.ind2d);
+	float px = x;
+	for (int i = 0; i < len; i++){
+		if (text[i] == ' '){
+			px += spaceWidth * fontScale;
+		} else {
+			int id = ttf_find_glyph(font.ttf,text[i]);
+			ASSERT(id >= 0);
+			ttf_glyph_t *g = font.ttf->glyphs + id;
+			VertexOffsetCount *c = font.voc2d + text[i] - '!';
+			glPushMatrix();
+			glTranslatef(px-width/2,y,20);
+			glScalef(fontScale,fontScale,1);
+			glDrawElements(GL_TRIANGLES,c->count,GL_UNSIGNED_INT,(void *)(c->offset*sizeof(int)));
+			glPopMatrix();
+			px += g->advance * fontScale;
+		}
+	}
+	glDisableClientState(GL_VERTEX_ARRAY);
+}
+
+void draw_text_3d(float x, float y, char *text){
+	int len = (int)strlen(text);
+	float width = 0.0f;
+	int id;
+	ttf_glyph_t *g;
+	id = ttf_find_glyph(font.ttf,'t');
+	ASSERT(id >= 0);
+	float spaceWidth = font.ttf->glyphs[id].advance;
+	for (int i = 0; i < len-1; i++){
+		if (text[i] == ' '){
+			width += spaceWidth;
+		} else {
+			id = ttf_find_glyph(font.ttf,text[i]);
+			ASSERT(id >= 0);
+			g = font.ttf->glyphs + id;
+			width += g->advance;
+		}
+	}
+	if (text[len-1] != ' '){
+		id = ttf_find_glyph(font.ttf,text[len-1]);
+		ASSERT(id >= 0);
+		g = font.ttf->glyphs + id;
+		width += g->xbounds[1]-g->xbounds[0];
+		width *= fontScale;
+	}
+	glEnable(GL_STENCIL_TEST);
+	glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
+	glStencilFunc(GL_ALWAYS,1,0xff);
+	glStencilMask(0xff);
+	glEnable(GL_LIGHTING);
+	glBindBuffer(GL_ARRAY_BUFFER,font.v3d);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glVertexPointer(3,GL_FLOAT,sizeof(NormalVertex),(void *)0);
+	glNormalPointer(GL_FLOAT,sizeof(NormalVertex),(void *)offsetof(NormalVertex,normal));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,font.ind3d);
 	float px = x;
 	for (int i = 0; i < len; i++){
 		if (text[i] == ' '){
@@ -430,6 +488,19 @@ void ui_end(){
 	uiY -= 1.5f;
 	return hovered && justClicked;
 }*/
+
+void setup_text_lighting(float r, float g, float b){
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, (GLfloat[]){r,g,b,1.0});
+	glMaterialfv(GL_FRONT, GL_SPECULAR, (GLfloat[]){0,0,0,1.0});
+	glMaterialfv(GL_FRONT, GL_SHININESS, (GLfloat[]){50.0});
+
+	glLightfv(GL_LIGHT0, GL_AMBIENT, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_SPECULAR, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_POSITION, (GLfloat[]){1.0,1.0,3.0,0.0});
+
+	glEnable(GL_LIGHT0);
+}
 
 void cleanup(void){
 	glfwDestroyWindow(gwindow);
@@ -592,6 +663,7 @@ void main(void){
 	//Init:
 	load_font(&font,"VanillaExtractRegular");
 
+	load_texture(&kenAndDennis,"textures/ken_and_dennis.jpg",true);
 	load_texture(&beachBackground,"campaigns/juicebar/textures/background.jpg",true);
 	load_texture(&checker,"textures/checker.png",false);
 	load_texture(&frame,"campaigns/juicebar/textures/frame.png",true);
@@ -688,7 +760,46 @@ void main(void){
 			}
 		}
 
-		if (gameState == ON_MENU){
+		if (gameState == INTRO){
+			static float kdy = 6.0f;
+			static float stay = 0.0f;
+			kdy -= 10*dt;
+			if (stay < 1.0f && kdy < 0){
+				kdy = 0;
+				stay += dt;
+			}
+
+			glEnable(GL_TEXTURE_2D);
+			glColor4f(1,1,1,1);
+			glBindTexture(GL_TEXTURE_2D,kenAndDennis.id);
+			float width = 7.0f;
+			float height = width * (float)kenAndDennis.height/kenAndDennis.width;
+			glPushMatrix();
+			glTranslatef(7,2+kdy,0);
+			glBegin(GL_QUADS);
+			glTexCoord2f(0,0); glVertex3f(0,0,0);
+			glTexCoord2f(1,0); glVertex3f(width,0,0);
+			glTexCoord2f(1,1); glVertex3f(width,height,0);
+			glTexCoord2f(0,1); glVertex3f(0,height,0);
+			glEnd();
+			glPopMatrix();
+			glDisable(GL_TEXTURE_2D);
+
+			fontScale = 0.5f;
+			draw_text_2d(4,5.5,"Powered by");
+
+			setup_text_lighting(0.659f,0.725f,0.8f);
+			fontScale = 2.0f;
+			draw_text_3d(4.0f,3.0f,"C");
+
+			glColor4f(0,0,0,fabsf(kdy)/6.0f);
+			glBegin(GL_QUADS);
+			glVertex3f(0,0,25);
+			glVertex3f(16,0,25);
+			glVertex3f(16,9,25);
+			glVertex3f(0,9,25);
+			glEnd();
+		} else if (gameState == MENU){
 			glBegin(GL_QUADS);
 			glColor3f(1,0,0); glVertex3f(0,0,0);
 			glColor3f(0,1,0); glVertex3f(16,0,0);
@@ -708,19 +819,7 @@ void main(void){
 				}
 			}
 
-			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat mat_shininess[] = { 50.0 };
-			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-			glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-			GLfloat light_ambient[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat light_position[] = { 1.0, 1.0, 3.0, 0.0 };
-			glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-			glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-			glEnable(GL_LIGHT0);
+			setup_text_lighting(1,1,1);
 			fontScale = 1.0f;
 			draw_text_3d(8.0f,6.0f,"Match Mayhem");
 
