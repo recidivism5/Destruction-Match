@@ -100,7 +100,7 @@ enum {
 	A_GAME_BY,
 	MENU,
 	PLAYING,
-} gameState = KEN_AND_DENNIS, targetGameState;
+} gameState = PLAYING, targetGameState;
 
 float uiY;
 
@@ -490,28 +490,19 @@ void ui_end(){
 	return hovered && justClicked;
 }*/
 
-void setup_text_lighting(float r, float g, float b){
+void set_material_diffuse(float r, float g, float b){
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, (GLfloat[]){r,g,b,1.0});
-	glMaterialfv(GL_FRONT, GL_SPECULAR, (GLfloat[]){0,0,0,1.0});
-	glMaterialfv(GL_FRONT, GL_SHININESS, (GLfloat[]){50.0});
-
-	glLightfv(GL_LIGHT0, GL_AMBIENT, (GLfloat[]){1.0,1.0,1.0,1.0});
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, (GLfloat[]){1.0,1.0,1.0,1.0});
-	glLightfv(GL_LIGHT0, GL_SPECULAR, (GLfloat[]){1.0,1.0,1.0,1.0});
-	glLightfv(GL_LIGHT0, GL_POSITION, (GLfloat[]){1.0,1.0,3.0,0.0});
-
-	glEnable(GL_LIGHT0);
 }
 
 void stay(int tgs){
-	static float stay = 0.0f;
+	static float s = 0.0f;
 	if (fadeState == FADE_NONE){
-		if (stay < 1.0f){
-			stay += dt;
+		if (s < 1.0f){
+			s += dt;
 		} else {
 			fadeState = FADE_OUT;
 			targetGameState = tgs;
-			stay = 0.0f;
+			s = 0.0f;
 		}
 	}
 }
@@ -715,6 +706,17 @@ void main(void){
 	fadeState = FADE_IN;
 	fadeAlpha = 1.0f;
 
+	set_material_diffuse(1,1,1);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, (GLfloat[]){0,0,0,1.0});
+	glMaterialfv(GL_FRONT, GL_SHININESS, (GLfloat[]){50.0});
+
+	glLightfv(GL_LIGHT0, GL_AMBIENT, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_SPECULAR, (GLfloat[]){1.0,1.0,1.0,1.0});
+	glLightfv(GL_LIGHT0, GL_POSITION, (GLfloat[]){1.0,1.0,3.0,0.0});
+
+	glEnable(GL_LIGHT0);
+
 	//Loop:
 
 	t0 = glfwGetTime();
@@ -799,12 +801,12 @@ void main(void){
 			fontScale = 0.5f;
 			draw_text_2d(4,5.5,"Powered by");
 
-			setup_text_lighting(0.659f,0.725f,0.8f);
+			set_material_diffuse(0.659f,0.725f,0.8f);
 			fontScale = 2.0f;
 			draw_text_3d(4.0f,3.0f,"C");
 		} else if (gameState == A_GAME_BY){
-			stay(MENU);
-			
+			stay(PLAYING);
+
 			fontScale = 0.5f;
 			draw_text_2d(8,4.5,"a game by ian bryant");
 		} else if (gameState == MENU){
@@ -827,7 +829,7 @@ void main(void){
 				}
 			}
 
-			setup_text_lighting(1,1,1);
+			set_material_diffuse(1,1,1);
 			fontScale = 1.0f;
 			draw_text_3d(8.0f,6.0f,"Match Mayhem");
 
@@ -848,13 +850,6 @@ void main(void){
 			}
 			ui_end();*/
 		} else if (gameState == PLAYING){
-			for (int x = 0; x < 8; x++){
-				for (int y = 0; y < 8; y++){
-					if (board[x][y].state == SETTLED){
-						explode_object(&board[x][y]);
-					}
-				}
-			}
 			//explode matches:
 			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
 			//moves do local checks and mark the 2 nearest matching objects as ANIMATING along with the moved object
@@ -1105,7 +1100,6 @@ void main(void){
 					}
 					iterations++;
 				} while (found);
-				printf("iterations: %d\n",iterations);
 			}
 			//update:
 			float unplacedInc = cellWidth*1.2f;
@@ -1232,20 +1226,7 @@ void main(void){
 
 			glClear(GL_DEPTH_BUFFER_BIT);
 
-			GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat mat_shininess[] = { 50.0 };
-			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-			glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-			
-			GLfloat light_ambient[] = { 1.5, 1.5, 1.5, 1.0 };
-			GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-			GLfloat light_position[] = { 1.0, 1.0, 3.0, 0.0 };
-			glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-			glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-			glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-			glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-			glEnable(GL_LIGHT0);
+			set_material_diffuse(1,1,1);
 
 			for (int x = 0; x < 8; x++){
 				for (int y = 0; y < 8; y++){
