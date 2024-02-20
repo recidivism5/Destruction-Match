@@ -328,8 +328,8 @@ void draw_text_2d(float x, float y, char *text){
 		ASSERT(id >= 0);
 		g = font.ttf->glyphs + id;
 		width += g->xbounds[1]-g->xbounds[0];
-		width *= fontScale;
 	}
+	width *= fontScale;
 	
 	glBindBuffer(GL_ARRAY_BUFFER,font.v2d);
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -385,8 +385,9 @@ void draw_text_3d(float x, float y, char *text){
 		ASSERT(id >= 0);
 		g = font.ttf->glyphs + id;
 		width += g->xbounds[1]-g->xbounds[0];
-		width *= fontScale;
 	}
+	width *= fontScale;
+	
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
 	glStencilFunc(GL_ALWAYS,1,0xff);
