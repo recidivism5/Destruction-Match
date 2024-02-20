@@ -100,7 +100,7 @@ enum {
 	A_GAME_BY,
 	MENU,
 	PLAYING,
-} gameState = PLAYING, targetGameState;
+} gameState = KEN_AND_DENNIS, targetGameState;
 
 float uiY;
 
@@ -330,7 +330,7 @@ void draw_text_2d(float x, float y, char *text){
 		width += g->xbounds[1]-g->xbounds[0];
 		width *= fontScale;
 	}
-	glColor3f(1,1,1);
+	
 	glBindBuffer(GL_ARRAY_BUFFER,font.v2d);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(2,GL_FLOAT,sizeof(vec2),(void *)0);
@@ -344,8 +344,15 @@ void draw_text_2d(float x, float y, char *text){
 			ASSERT(id >= 0);
 			ttf_glyph_t *g = font.ttf->glyphs + id;
 			VertexOffsetCount *c = font.voc2d + text[i] - '!';
+			glColor3f(1,1,1);
 			glPushMatrix();
 			glTranslatef(px-width/2,y,20);
+			glScalef(fontScale,fontScale,1);
+			glDrawElements(GL_TRIANGLES,c->count,GL_UNSIGNED_INT,(void *)(c->offset*sizeof(int)));
+			glPopMatrix();
+			glColor3f(0,0,0);
+			glPushMatrix();
+			glTranslatef(px-width/2+fontScale*0.1f,y-fontScale*0.1f,19);
 			glScalef(fontScale,fontScale,1);
 			glDrawElements(GL_TRIANGLES,c->count,GL_UNSIGNED_INT,(void *)(c->offset*sizeof(int)));
 			glPopMatrix();
@@ -440,55 +447,40 @@ void draw_text_3d(float x, float y, char *text){
 	glDisable(GL_STENCIL_TEST);
 }
 
-/*void draw_button(float x, float y, float z, char *text){
-	glBindTexture(GL_TEXTURE_2D,wideButtonDark.id);
-	float aspect = 293.0f/75.0f;
-	float width = fontHeight * aspect;
-	x -= width/2;
-	y -= fontHeight/2;
-	glColor3f(1,1,1);
-	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex3f(x,y,z);
-	glTexCoord2f(1,0); glVertex3f(x+width,y,z);
-	glTexCoord2f(1,1); glVertex3f(x+width,y+fontHeight,z);
-	glTexCoord2f(0,1); glVertex3f(x,y+fontHeight,z);
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D,font.id);
-	draw_text_shadow_centered(x+width/2,y+fontHeight/2,z+1,text);
-}
-
 void ui_begin(float y){
 	uiY = y;
-	set_font_height(1.0f);
-	glEnable(GL_TEXTURE_2D);
 }
 
 void ui_end(){
-	glDisable(GL_TEXTURE_2D);
-}*/
+}
 
-/*bool ui_button(char *text){
+bool ui_button(char *text){
+	fontScale = 0.5f;
+
 	float aspect = 293.0f/75.0f;
 	FSRect rect = {
-		.width = fontHeight * aspect,
-		.height = fontHeight
+		.width = fontScale*2 * aspect,
+		.height = fontScale*2
 	};
 	rect.x = 8.0f - rect.width/2;
-	rect.y = uiY - fontHeight/2;
+	rect.y = uiY - fontScale;
 	bool hovered = mouse_in_rect(&rect);
+
+	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,hovered ? wideButtonLight.id : wideButtonDark.id);
 	glColor3f(1,1,1);
 	glBegin(GL_QUADS);
 	glTexCoord2f(0,0); glVertex3f(rect.x,rect.y,2);
 	glTexCoord2f(1,0); glVertex3f(rect.x+rect.width,rect.y,2);
-	glTexCoord2f(1,1); glVertex3f(rect.x+rect.width,rect.y+fontHeight,2);
-	glTexCoord2f(0,1); glVertex3f(rect.x,rect.y+fontHeight,2);
+	glTexCoord2f(1,1); glVertex3f(rect.x+rect.width,rect.y+fontScale*2,2);
+	glTexCoord2f(0,1); glVertex3f(rect.x,rect.y+fontScale*2,2);
 	glEnd();
-	glBindTexture(GL_TEXTURE_2D,font.id);
-	draw_text_shadow_centered(rect.x+rect.width/2,rect.y+fontHeight/2,3,text);
+	glDisable(GL_TEXTURE_2D);
+
+	draw_text_2d(rect.x+rect.width/2,rect.y+fontScale*1.2f/2,text);
 	uiY -= 1.5f;
 	return hovered && justClicked;
-}*/
+}
 
 void set_material_diffuse(float r, float g, float b){
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, (GLfloat[]){r,g,b,1.0});
@@ -805,7 +797,7 @@ void main(void){
 			fontScale = 2.0f;
 			draw_text_3d(4.0f,3.0f,"C");
 		} else if (gameState == A_GAME_BY){
-			stay(PLAYING);
+			stay(MENU);
 
 			fontScale = 0.5f;
 			draw_text_2d(8,4.5,"a game by ian bryant");
@@ -833,7 +825,7 @@ void main(void){
 			fontScale = 1.0f;
 			draw_text_3d(8.0f,6.0f,"Match Mayhem");
 
-			/*ui_begin(4.5f);
+			ui_begin(4.5f);
 			if (targetGameState == PLAYING){
 				justClicked = false;
 			}
@@ -848,7 +840,7 @@ void main(void){
 			if (ui_button("Quit")){
 				glfwSetWindowShouldClose(gwindow,GLFW_TRUE);
 			}
-			ui_end();*/
+			ui_end();
 		} else if (gameState == PLAYING){
 			//explode matches:
 			//ignore everything except SETTLED objects, just mark and blow up the old fashioned way
