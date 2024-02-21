@@ -614,7 +614,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos){
-	
 }
 
 GLFWwindow *create_centered_window(int width, int height, char *title){
@@ -744,6 +743,10 @@ void main(void){
 		{
 			double mx,my;
 			glfwGetCursorPos(gwindow,&mx,&my);
+			float xscale,yscale;
+			glfwGetWindowContentScale(gwindow,&xscale,&yscale);
+			mx *= xscale;
+			my *= yscale;
 			mouse[0] = 16 * ((float)mx - screen.x) / (screen.width-1);
 			mouse[1] = 9 * ((float)clientHeight-1-(float)my - screen.y) / (screen.height-1);
 		}

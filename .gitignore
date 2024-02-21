@@ -3,3 +3,5 @@ build
 *.exe
 *.dll
 *.pdb
+.DS_Store
+matchmayhem

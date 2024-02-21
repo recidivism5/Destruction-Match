@@ -103,6 +103,8 @@
 extern "C" {
 #endif
 
+#define TTF_NO_FILESYSTEM
+
 #define TTF2MESH_VERSION   "1.6"  /* current library version */
 
 #define TTF_MAX_FILE       32     /* font file size limit, MB */
