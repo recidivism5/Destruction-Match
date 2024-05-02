@@ -1,12 +1,7 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <linmath.h>
-#include <stb_image.h>
+#include <tiny3d.h>
 #include <ttf2mesh.h>
-
-#include <base.h>
 
 typedef struct {
 	int width, height;

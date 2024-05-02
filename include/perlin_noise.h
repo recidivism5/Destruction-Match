@@ -27,8 +27,6 @@
 */
 #pragma once
 
-#include <base.h>
-
 //randomizes the perlin table
 void seed_perlin_noise(int seed);
 

@@ -20,8 +20,8 @@ typedef struct {
 
 typedef struct {
 	int vertexCount;
-	GLuint vertices;
-	GLuint expandedPositions;
+	ModelVertex *vertices;
+	vec3 *expandedPositions;
 	int materialCount;
 	Material *materials;
 	int objectCount;

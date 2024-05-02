@@ -9,27 +9,19 @@ void load_fractured_model(FracturedModel *model, char *name){
 	
 	ASSERT(1==fread(&model->vertexCount,sizeof(model->vertexCount),1,f));
 	ASSERT(model->vertexCount < 65536);
-	ModelVertex *vertices = malloc(model->vertexCount * sizeof(*vertices));
-	ASSERT(vertices);
-	vec3 *expandedPositions = malloc(model->vertexCount * sizeof(*expandedPositions));
-	ASSERT(expandedPositions);
-	ASSERT(1==fread(vertices,model->vertexCount * sizeof(*vertices),1,f));
+	model->vertices = malloc(model->vertexCount * sizeof(*model->vertices));
+	ASSERT(model->vertices);
+	model->expandedPositions = malloc(model->vertexCount * sizeof(*model->expandedPositions));
+	ASSERT(model->expandedPositions);
+	ASSERT(1==fread(model->vertices,model->vertexCount * sizeof(*model->vertices),1,f));
 	for (int i = 0; i < model->vertexCount; i++){
-		vec3 *ev = expandedPositions+i;
-		ModelVertex *v = vertices+i;
+		vec3 *ev = model->expandedPositions+i;
+		ModelVertex *v = model->vertices+i;
 		vec3_copy(v->position,(float *)ev);
 		vec3 snorm;
 		vec3_scale(v->normal,0.025f,snorm);
 		vec3_add((float *)ev,snorm,(float *)ev);
 	}
-	glGenBuffers(1,&model->vertices);
-	glBindBuffer(GL_ARRAY_BUFFER,model->vertices);
-	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*vertices),vertices,GL_STATIC_DRAW);
-	glGenBuffers(1,&model->expandedPositions);
-	glBindBuffer(GL_ARRAY_BUFFER,model->expandedPositions);
-	glBufferData(GL_ARRAY_BUFFER,model->vertexCount*sizeof(*expandedPositions),expandedPositions,GL_STATIC_DRAW);
-	free(vertices);
-	free(expandedPositions);
 	ASSERT(1==fread(&model->materialCount,sizeof(model->materialCount),1,f));
 	ASSERT(0 < model->materialCount && model->materialCount < 256);
 	model->materials = malloc(model->materialCount * sizeof(*model->materials));

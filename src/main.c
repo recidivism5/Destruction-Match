@@ -1,5 +1,4 @@
 #include <glutil.h>
-#include <alutil.h>
 #include <font.h>
 #include <fmf.h>
 #include <perlin_noise.h>
